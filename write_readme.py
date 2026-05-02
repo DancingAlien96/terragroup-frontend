@@ -1,4 +1,6 @@
-<!-- README COMPLETO DEL PROYECTO — para uso de agentes de IA y desarrolladores -->
+import os
+
+readme = r"""<!-- README COMPLETO DEL PROYECTO — para uso de agentes de IA y desarrolladores -->
 
 # TERRAGROUP — Sistema SaaS de Cobranza para Lotificaciones
 
@@ -535,3 +537,9 @@ Backend:
 7. Seguridad: bcrypt salt 12, JWT con expiracion, consultas SQL parametrizadas.
 8. Estado actual del proyecto: el frontend tiene solo los archivos de create-next-app. El backend está completamente vacío. TODO debe construirse.
 9. Leer AGENTS.md: indica revisar node_modules/next/dist/docs/ antes de escribir código Next.js por breaking changes.
+"""
+
+with open(r'c:\Users\cristofer perez\Documents\terragroup-frontend\README.md', 'w', encoding='utf-8') as f:
+    f.write(readme)
+
+print('README escrito correctamente:', len(readme), 'caracteres')
