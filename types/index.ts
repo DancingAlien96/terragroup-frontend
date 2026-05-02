@@ -1,5 +1,5 @@
 export type Plan = 'basico' | 'profesional' | 'empresarial';
-export type Rol = 'admin' | 'vendedor' | 'supervisor';
+export type Rol = 'superadmin' | 'admin' | 'vendedor' | 'supervisor';
 
 export interface AuthUser {
   id: number;

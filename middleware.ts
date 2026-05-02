@@ -11,6 +11,14 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Protect /admin routes (role check is client-side; here we just require a token)
+  if (pathname.startsWith('/admin')) {
+    const token = request.cookies.get('tg_token')?.value;
+    if (!token) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
+
   // Redirect logged-in users away from /login
   if (pathname === '/login') {
     const token = request.cookies.get('tg_token')?.value;
@@ -23,5 +31,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login'],
+  matcher: ['/dashboard/:path*', '/admin/:path*', '/login'],
 };

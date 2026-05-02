@@ -15,6 +15,10 @@ export function getStoredToken(): string | null {
   return localStorage.getItem('tg_token');
 }
 
+export function setStoredToken(token: string): void {
+  localStorage.setItem('tg_token', token);
+}
+
 export function getStoredUser(): AuthUser | null {
   if (typeof window === 'undefined') return null;
   try {
