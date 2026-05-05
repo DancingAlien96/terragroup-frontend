@@ -11,11 +11,11 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Protect /admin routes (role check is client-side; here we just require a token)
-  if (pathname.startsWith('/admin')) {
+  // Protect /admin/panel (the actual panel, /admin itself is the admin login)
+  if (pathname.startsWith('/admin/panel')) {
     const token = request.cookies.get('tg_token')?.value;
     if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url));
+      return NextResponse.redirect(new URL('/admin', request.url));
     }
   }
 
@@ -31,5 +31,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/admin/:path*', '/login'],
+  matcher: ['/dashboard/:path*', '/admin/panel/:path*', '/login'],
 };

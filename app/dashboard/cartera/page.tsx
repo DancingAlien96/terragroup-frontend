@@ -139,7 +139,7 @@ export default function CarteraVencidaPage() {
           </div>
         </div>
 
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Propietario</th>
@@ -178,7 +178,7 @@ export default function CarteraVencidaPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
 
         <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-400">
           {filtrados.length} de {deudores.length} registros

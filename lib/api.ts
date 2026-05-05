@@ -1,6 +1,6 @@
 import { getStoredToken } from './auth';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 async function request<T>(
   path: string,
@@ -94,5 +94,10 @@ export const api = {
 
   planes: {
     list: () => request<any[]>('/api/planes'),
+  },
+
+  stats: {
+    dashboard: () => request<any>('/api/stats/dashboard'),
+    reportes:  () => request<any>('/api/stats/reportes'),
   },
 };

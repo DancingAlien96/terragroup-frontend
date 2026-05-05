@@ -146,7 +146,7 @@ export default function VendedoresPage() {
         </div>
 
         {tab === 'vendedores' && (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Vendedor</th>
@@ -189,11 +189,11 @@ export default function VendedoresPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
 
         {tab === 'comisiones' && (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Vendedor</th>
@@ -231,7 +231,7 @@ export default function VendedoresPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
 
         <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-400">

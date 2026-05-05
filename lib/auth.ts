@@ -32,4 +32,6 @@ export function getStoredUser(): AuthUser | null {
 export function logout(): void {
   localStorage.removeItem('tg_token');
   localStorage.removeItem('tg_user');
+  // Clear the cookie used by middleware
+  document.cookie = 'tg_token=; path=/; max-age=0; SameSite=Lax';
 }

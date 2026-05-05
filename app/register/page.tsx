@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
 import { setStoredToken } from '@/lib/auth';
 
@@ -35,6 +36,7 @@ export default function RegisterPage() {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [empresa, setEmpresa] = useState({ nombre: '', email: '', telefono: '' });
   const [admin, setAdmin] = useState({ nombre: '', email: '', username: '', password: '', confirmPassword: '' });
@@ -203,13 +205,23 @@ export default function RegisterPage() {
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
                   {label} <span className="text-red-500">*</span>
                 </label>
-                <input type={type} placeholder={placeholder}
-                  value={admin[key as keyof typeof admin]}
-                  onChange={e => setAdmin(s => ({ ...s, [key]: e.target.value }))}
-                  className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] ${
-                    key === 'confirmPassword' && admin.confirmPassword && admin.password !== admin.confirmPassword
-                      ? 'border-red-400' : 'border-gray-200'
-                  }`} />
+                <div className="relative">
+                  <input type={type === 'password' ? (showPassword ? 'text' : 'password') : type}
+                    placeholder={placeholder}
+                    value={admin[key as keyof typeof admin]}
+                    onChange={e => setAdmin(s => ({ ...s, [key]: e.target.value }))}
+                    className={`w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] ${
+                      key === 'confirmPassword' && admin.confirmPassword && admin.password !== admin.confirmPassword
+                        ? 'border-red-400 pr-10' : 'border-gray-200' + (type === 'password' ? ' pr-10' : '')
+                    }`} />
+                  {type === 'password' && (
+                    <button type="button" onClick={() => setShowPassword(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      tabIndex={-1}>
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  )}
+                </div>
                 {key === 'confirmPassword' && admin.confirmPassword && admin.password !== admin.confirmPassword && (
                   <p className="text-xs text-red-500 mt-1">Las contraseñas no coinciden</p>
                 )}
