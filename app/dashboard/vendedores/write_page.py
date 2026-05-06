@@ -1,3 +1,6 @@
+import pathlib, textwrap
+
+content = """\
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -507,3 +510,8 @@ export default function VendedoresPage() {
     </>
   );
 }
+"""
+
+out = pathlib.Path(r"c:\Users\cristofer perez\Documents\terragroup-frontend\app\dashboard\vendedores\page.tsx")
+out.write_text(content, encoding="utf-8")
+print(f"Escrito: {len(content)} chars")

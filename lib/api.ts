@@ -64,10 +64,13 @@ export const api = {
 
   vendedores: {
     list: () => request<any[]>('/api/vendedores'),
+    create: (body: unknown) => request<any>('/api/vendedores', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: number, body: unknown) => request<any>(`/api/vendedores/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (id: number) => request<void>(`/api/vendedores/${id}`, { method: 'DELETE' }),
     comisiones: {
-      list: () => request<any[]>('/api/vendedores/comisiones'),
-      create: (body: unknown) => request<any>('/api/vendedores/comisiones', { method: 'POST', body: JSON.stringify(body) }),
-      toggle: (id: number) => request<any>(`/api/vendedores/comisiones/${id}/toggle`, { method: 'PATCH' }),
+      list: (vendedorId: number) => request<any[]>(`/api/vendedores/${vendedorId}/comisiones`),
+      create: (vendedorId: number, body: unknown) => request<any>(`/api/vendedores/${vendedorId}/comisiones`, { method: 'POST', body: JSON.stringify(body) }),
+      delete: (vendedorId: number, comisionId: number) => request<void>(`/api/vendedores/${vendedorId}/comisiones/${comisionId}`, { method: 'DELETE' }),
     },
   },
 
@@ -80,6 +83,14 @@ export const api = {
 
   cartera: {
     list: () => request<any[]>('/api/cartera'),
+  },
+
+  clientes: {
+    list: () => request<any[]>('/api/clientes'),
+    get:  (id: number) => request<any>(`/api/clientes/${id}`),
+    create: (body: unknown) => request<any>('/api/clientes', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: number, body: unknown) => request<any>(`/api/clientes/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (id: number) => request<any>(`/api/clientes/${id}`, { method: 'DELETE' }),
   },
 
   empresas: {

@@ -1,9 +1,14 @@
+import pathlib, textwrap
+
+content = textwrap.dedent("""\
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 
 /* ── Types ─────────────────────────────────────────────────── */
+type EstadoPago = 'pagado' | 'pendiente' | 'vencido';
+
 interface Cliente {
   id: number;
   nombre_comprador: string;
@@ -26,18 +31,21 @@ interface Pago {
   fecha_pago: string | null;
   metodo_pago: string | null;
   referencia: string | null;
+  estado: EstadoPago;
   contrato_id: number | null;
   propietario_id: number | null;
 }
 
+const BADGE: Record<EstadoPago, string> = {
+  pagado:    'bg-green-50 text-green-700 border border-green-200',
+  pendiente: 'bg-gray-100 text-gray-600 border border-gray-200',
+  vencido:   'bg-red-50 text-red-600 border border-red-200',
+};
+const ESTADO_LABEL: Record<EstadoPago, string> = {
+  pagado: 'Pagado', pendiente: 'Pendiente', vencido: 'Vencido',
+};
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(n);
-
-const fmtDate = (s: string | null) => {
-  if (!s) return '—';
-  const d = new Date(s);
-  return new Intl.DateTimeFormat('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Guatemala' }).format(d);
-};
 
 /* ── ClienteSelector ────────────────────────────────────────── */
 function ClienteSelector({
@@ -134,6 +142,7 @@ function PagoModal({
   const [monto, setMonto] = useState(String(pago?.monto ?? ''));
   const [metodo, setMetodo] = useState(pago?.metodo_pago ?? 'Transferencia');
   const [referencia, setReferencia] = useState(pago?.referencia ?? '');
+  const [estado, setEstado] = useState<EstadoPago>(pago?.estado ?? 'pendiente');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -166,7 +175,7 @@ function PagoModal({
         fecha_pago: today,
         metodo_pago: metodo,
         referencia: referencia || null,
-        estado: 'pagado',
+        estado,
       };
       if (pago) {
         await api.pagos.update(pago.id, body);
@@ -242,6 +251,16 @@ function PagoModal({
             </div>
           )}
 
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Estado</label>
+            <select value={estado} onChange={e => setEstado(e.target.value as EstadoPago)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
+              <option value="pendiente">Pendiente</option>
+              <option value="pagado">Pagado</option>
+              <option value="vencido">Vencido</option>
+            </select>
+          </div>
+
           <div className="flex gap-3 mt-2">
             <button type="button" onClick={onClose} disabled={saving}
               className="flex-1 border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50">
@@ -262,9 +281,12 @@ function PagoModal({
 export default function GestionPagosPage() {
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState<'Todos' | EstadoPago>('Todos');
   const [busqueda, setBusqueda] = useState('');
   const [modal, setModal] = useState(false);
   const [editPago, setEditPago] = useState<Pago | null>(null);
+
+  const TABS: Array<'Todos' | EstadoPago> = ['Todos', 'pagado', 'pendiente', 'vencido'];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -282,11 +304,13 @@ export default function GestionPagosPage() {
   }
 
   const pagosFiltrados = pagos.filter((p) => {
+    const matchFiltro = filtro === 'Todos' || p.estado === filtro;
     const q = busqueda.toLowerCase();
-    return q === '' ||
+    const matchBusqueda = q === '' ||
       (p.cliente_nombre_comprador ?? '').toLowerCase().includes(q) ||
       (p.cliente_descripcion_lote ?? '').toLowerCase().includes(q) ||
       p.propietario_nombre.toLowerCase().includes(q);
+    return matchFiltro && matchBusqueda;
   });
 
   return (
@@ -318,6 +342,18 @@ export default function GestionPagosPage() {
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center gap-1">
+              {TABS.map((tab) => (
+                <button key={tab} onClick={() => setFiltro(tab)}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    filtro === tab
+                      ? 'bg-[#fdf3d9] text-[#92700a] font-semibold'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                  }`}>
+                  {tab}
+                </button>
+              ))}
+            </div>
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -342,20 +378,20 @@ export default function GestionPagosPage() {
                     <th className="px-5 py-3 text-right font-medium">Monto</th>
                     <th className="px-5 py-3 text-left font-medium">Fecha</th>
                     <th className="px-5 py-3 text-left font-medium">Método</th>
+                    <th className="px-5 py-3 text-left font-medium">Estado</th>
                     <th className="px-5 py-3 text-center font-medium">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pagosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-5 py-12 text-center text-sm text-gray-400">
+                      <td colSpan={9} className="px-5 py-12 text-center text-sm text-gray-400">
                         {busqueda ? 'Sin resultados para la búsqueda' : 'No hay pagos registrados'}
                       </td>
                     </tr>
                   ) : pagosFiltrados.map((pago) => (
                     <tr key={pago.id} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors last:border-0">
                       <td className="px-5 py-3.5 text-gray-400 text-xs font-mono">PAG-{String(pago.id).padStart(3, '0')}</td>
-
                       <td className="px-5 py-3.5 font-medium text-gray-900 whitespace-nowrap">
                         {pago.cliente_nombre_comprador ?? pago.propietario_nombre}
                       </td>
@@ -368,8 +404,13 @@ export default function GestionPagosPage() {
                           : '—'}
                       </td>
                       <td className="px-5 py-3.5 text-right font-bold text-gray-900">{fmt(pago.monto)}</td>
-                      <td className="px-5 py-3.5 text-gray-500 text-xs">{fmtDate(pago.fecha_pago ?? pago.fecha_vencimiento)}</td>
+                      <td className="px-5 py-3.5 text-gray-500 text-xs">{pago.fecha_pago ?? pago.fecha_vencimiento}</td>
                       <td className="px-5 py-3.5 text-gray-500">{pago.metodo_pago ?? '—'}</td>
+                      <td className="px-5 py-3.5">
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${BADGE[pago.estado]}`}>
+                          {ESTADO_LABEL[pago.estado]}
+                        </span>
+                      </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-center gap-2">
                           <button onClick={() => { setEditPago(pago); setModal(true); }} title="Editar"
@@ -403,3 +444,8 @@ export default function GestionPagosPage() {
     </>
   );
 }
+""")
+
+out = pathlib.Path(r"c:\Users\cristofer perez\Documents\terragroup-frontend\app\dashboard\pagos\page.tsx")
+out.write_text(content, encoding="utf-8")
+print(f"Escrito: {len(content)} chars")
