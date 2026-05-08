@@ -70,6 +70,7 @@ export const api = {
     comisiones: {
       list: (vendedorId: number) => request<any[]>(`/api/vendedores/${vendedorId}/comisiones`),
       create: (vendedorId: number, body: unknown) => request<any>(`/api/vendedores/${vendedorId}/comisiones`, { method: 'POST', body: JSON.stringify(body) }),
+      update: (vendedorId: number, comisionId: number, body: unknown) => request<any>(`/api/vendedores/${vendedorId}/comisiones/${comisionId}`, { method: 'PUT', body: JSON.stringify(body) }),
       delete: (vendedorId: number, comisionId: number) => request<void>(`/api/vendedores/${vendedorId}/comisiones/${comisionId}`, { method: 'DELETE' }),
     },
   },

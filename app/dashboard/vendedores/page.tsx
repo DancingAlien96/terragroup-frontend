@@ -22,6 +22,7 @@ interface Comision {
   vendedor_id: number;
   vendedor_nombre: string;
   descripcion_lote: string;
+  valor_lote: number;
   porcentaje: number;
   monto_comision: number;
   fecha_venta: string;
@@ -30,8 +31,10 @@ interface Comision {
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(n);
 
-const fmtDate = (s: string) =>
-  new Date(s + 'T00:00:00').toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const fmtDate = (s: string | Date) => {
+  const d = new Date(typeof s === 'string' ? s.includes('T') ? s : s + 'T12:00:00' : String(s));
+  return isNaN(d.getTime()) ? String(s) : d.toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
 
 /* ── VendedorModal ──────────────────────────────────────────── */
 function VendedorModal({
@@ -149,15 +152,18 @@ function ComisionModal({
   const [comisiones, setComisiones] = useState<Comision[]>([]);
   const [loading, setLoading]       = useState(true);
   const [showForm, setShowForm]     = useState(false);
+  const [editingId, setEditingId]   = useState<number | null>(null);
   const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({
-    descripcion_lote: '',
-    porcentaje:       '',
-    monto_comision:   '',
-    fecha_venta:      today,
-  });
+
+  const emptyForm = { descripcion_lote: '', valor_lote: '', porcentaje: '', fecha_venta: today };
+  const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const montoCalculado =
+    form.valor_lote && form.porcentaje
+      ? parseFloat(form.valor_lote) * parseFloat(form.porcentaje) / 100
+      : null;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -168,18 +174,48 @@ function ComisionModal({
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleAdd(e: React.FormEvent) {
+  function openNew() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setShowForm(true);
+  }
+
+  function openEdit(c: Comision) {
+    setEditingId(c.id);
+    setForm({
+      descripcion_lote: c.descripcion_lote,
+      valor_lote:       String(c.valor_lote),
+      porcentaje:       String(c.porcentaje),
+      fecha_venta:      typeof c.fecha_venta === 'string' && !c.fecha_venta.includes('T')
+        ? c.fecha_venta
+        : new Date(c.fecha_venta).toISOString().split('T')[0],
+    });
+    setShowForm(true);
+  }
+
+  function cancelForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!montoCalculado) return;
     setSaving(true);
+    const body = {
+      descripcion_lote: form.descripcion_lote,
+      valor_lote:       Number(form.valor_lote),
+      porcentaje:       Number(form.porcentaje),
+      fecha_venta:      form.fecha_venta,
+    };
     try {
-      await api.vendedores.comisiones.create(vendedor.id, {
-        descripcion_lote: form.descripcion_lote,
-        porcentaje:       Number(form.porcentaje),
-        monto_comision:   Number(form.monto_comision),
-        fecha_venta:      form.fecha_venta,
-      });
-      setShowForm(false);
-      setForm({ descripcion_lote: '', porcentaje: '', monto_comision: '', fecha_venta: today });
+      if (editingId !== null) {
+        await api.vendedores.comisiones.update(vendedor.id, editingId, body);
+      } else {
+        await api.vendedores.comisiones.create(vendedor.id, body);
+      }
+      cancelForm();
       load();
     } catch (err: any) {
       alert(err.message ?? 'Error');
@@ -212,8 +248,10 @@ function ComisionModal({
         </div>
 
         {showForm ? (
-          <form className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 shrink-0" onSubmit={handleAdd}>
-            <p className="text-xs font-semibold text-amber-800 mb-3">Registrar nueva venta</p>
+          <form className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 shrink-0" onSubmit={handleSubmit}>
+            <p className="text-xs font-semibold text-amber-800 mb-3">
+              {editingId !== null ? 'Editar venta' : 'Registrar nueva venta'}
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Descripción del lote *</label>
@@ -222,16 +260,22 @@ function ComisionModal({
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Porcentaje comisión *</label>
-                <input type="number" step="0.01" value={form.porcentaje} onChange={e => set('porcentaje', e.target.value)} required
-                  placeholder="Ej. 5.00"
+                <label className="block text-xs font-medium text-gray-600 mb-1">Valor del lote (Q) *</label>
+                <input type="number" step="0.01" min="0" value={form.valor_lote} onChange={e => set('valor_lote', e.target.value)} required
+                  placeholder="Ej. 250000.00"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Monto comisión (Q) *</label>
-                <input type="number" step="0.01" value={form.monto_comision} onChange={e => set('monto_comision', e.target.value)} required
-                  placeholder="Ej. 2500.00"
+                <label className="block text-xs font-medium text-gray-600 mb-1">Porcentaje de comisión (%) *</label>
+                <input type="number" step="0.01" min="0" max="100" value={form.porcentaje} onChange={e => set('porcentaje', e.target.value)} required
+                  placeholder="Ej. 5.00"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+              </div>
+              <div className="col-span-2 bg-white border border-amber-300 rounded-lg px-4 py-2.5 flex items-center justify-between">
+                <span className="text-xs text-gray-500 font-medium">Comisión calculada:</span>
+                <span className="text-base font-bold text-[#d4a843]">
+                  {montoCalculado !== null ? fmt(montoCalculado) : <span className="text-gray-300 font-normal text-sm">— ingresa valor y porcentaje</span>}
+                </span>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de venta *</label>
@@ -240,13 +284,13 @@ function ComisionModal({
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <button type="button" onClick={() => setShowForm(false)}
+              <button type="button" onClick={cancelForm}
                 className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 border border-gray-200 rounded-lg">
                 Cancelar
               </button>
-              <button type="submit" disabled={saving}
+              <button type="submit" disabled={saving || montoCalculado === null}
                 className="text-sm bg-[#d4a843] text-white px-4 py-1.5 rounded-lg hover:bg-[#b8922e] disabled:opacity-60 font-medium">
-                {saving ? 'Guardando...' : 'Guardar venta'}
+                {saving ? 'Guardando...' : editingId !== null ? 'Actualizar venta' : 'Guardar venta'}
               </button>
             </div>
           </form>
@@ -256,7 +300,7 @@ function ComisionModal({
               {comisiones.length} {comisiones.length === 1 ? 'venta' : 'ventas'} &middot; Total:{' '}
               <span className="font-semibold text-[#d4a843]">{fmt(totalComision)}</span>
             </p>
-            <button onClick={() => setShowForm(true)}
+            <button onClick={openNew}
               className="flex items-center gap-1.5 text-sm bg-[#d4a843] text-white px-3 py-1.5 rounded-lg hover:bg-[#b8922e] font-medium">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -276,27 +320,38 @@ function ComisionModal({
               <thead>
                 <tr className="text-xs text-gray-400 border-b border-gray-100">
                   <th className="py-2 text-left font-medium">Lote</th>
-                  <th className="py-2 text-center font-medium w-16">%</th>
+                  <th className="py-2 text-right font-medium">Valor lote</th>
+                  <th className="py-2 text-center font-medium w-14">%</th>
                   <th className="py-2 text-right font-medium">Comisión</th>
-                  <th className="py-2 text-left font-medium px-4">Fecha</th>
-                  <th className="py-2 text-center font-medium w-12"></th>
+                  <th className="py-2 text-left font-medium px-3">Fecha</th>
+                  <th className="py-2 text-center font-medium w-16"></th>
                 </tr>
               </thead>
               <tbody>
                 {comisiones.map(c => (
                   <tr key={c.id} className="border-b border-gray-50 last:border-0">
-                    <td className="py-3 text-gray-700 font-medium max-w-[220px] truncate">{c.descripcion_lote}</td>
-                    <td className="py-3 text-center text-gray-500">{c.porcentaje}%</td>
+                    <td className="py-3 text-gray-700 font-medium max-w-[160px] truncate">{c.descripcion_lote}</td>
+                    <td className="py-3 text-right text-gray-500 text-xs">{fmt(Number(c.valor_lote))}</td>
+                    <td className="py-3 text-center text-gray-500">{Number(c.porcentaje).toFixed(2)}%</td>
                     <td className="py-3 text-right font-bold text-[#d4a843]">{fmt(Number(c.monto_comision))}</td>
-                    <td className="py-3 text-gray-400 text-xs px-4">{fmtDate(c.fecha_venta)}</td>
+                    <td className="py-3 text-gray-400 text-xs px-3">{fmtDate(c.fecha_venta)}</td>
                     <td className="py-3 text-center">
-                      <button onClick={() => handleDelete(c.id)}
-                        className="p-1 text-gray-300 hover:text-red-500 transition-colors">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                          <path d="M10 11v6M14 11v6M9 6V4h6v2"/>
-                        </svg>
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => openEdit(c)} title="Editar"
+                          className="p-1 text-gray-300 hover:text-[#d4a843] transition-colors">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        </button>
+                        <button onClick={() => handleDelete(c.id)} title="Eliminar"
+                          className="p-1 text-gray-300 hover:text-red-500 transition-colors">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                            <path d="M10 11v6M14 11v6M9 6V4h6v2"/>
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

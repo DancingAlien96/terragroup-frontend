@@ -7,7 +7,7 @@ import type { AuthUser } from '@/types';
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 const fmt = (n: number) =>
-  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', maximumFractionDigits: 0 }).format(n);
 
 const ESTADO_COLORS: Record<string, string> = {
   pagado:    'bg-green-50 text-green-700',
@@ -54,6 +54,9 @@ function DonutChart({ segments }: { segments: { label: string; value: number; co
 }
 
 const DONUT_COLORS: Record<string, string> = {
+  'Al corriente': '#22c55e',
+  'En mora':      '#ef4444',
+  'Liquidado':    '#6366f1',
   activo:    '#22c55e',
   pendiente: '#f59e0b',
   vencido:   '#ef4444',
@@ -146,8 +149,8 @@ export default function DashboardPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <h3 className="font-bold text-gray-900 mb-1">Distribución de Contratos</h3>
-          <p className="text-xs text-gray-400 mb-4">Por estado de cuenta</p>
+          <h3 className="font-bold text-gray-900">Estado de Clientes</h3>
+          <p className="text-xs text-gray-400 mb-4">Al corriente / En mora / Liquidados</p>
           {loading ? <div className="h-40 flex items-center justify-center text-gray-400 text-sm">Cargando...</div>
           : (
             <div className="flex flex-col items-center gap-4">
@@ -200,7 +203,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
           <div className="mb-4">
             <h3 className="font-bold text-gray-900">Mayores Deudores</h3>
-            <p className="text-xs text-gray-400">Propietarios con mayor saldo vencido</p>
+            <p className="text-xs text-gray-400">Clientes con mayor monto de cuotas vencidas</p>
           </div>
           {loading ? <div className="py-8 text-center text-gray-400 text-sm">Cargando...</div>
           : deudores.length === 0 ? <div className="py-8 text-center text-gray-400 text-sm">Sin deudores vencidos</div>

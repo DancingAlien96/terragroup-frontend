@@ -9,6 +9,8 @@ type Entidad = 'Banrural' | 'Industrial' | 'G&T' | 'BAC';
 interface Cliente {
   id: number;
   nombre_comprador: string;
+  email: string | null;
+  telefono: string | null;
   descripcion_lote: string | null;
   precio_neto: number;
   enganche: number;
@@ -36,6 +38,8 @@ function ClienteModal({
   const today = new Date().toISOString().split('T')[0];
 
   const [nombre, setNombre] = useState(cliente?.nombre_comprador ?? '');
+  const [email, setEmail] = useState(cliente?.email ?? '');
+  const [telefono, setTelefono] = useState(cliente?.telefono ?? '');
   const [descLote, setDescLote] = useState(cliente?.descripcion_lote ?? '');
   const [precioNeto, setPrecioNeto] = useState(String(cliente?.precio_neto ?? ''));
   const [enganche, setEnganche] = useState(String(cliente?.enganche ?? ''));
@@ -52,6 +56,8 @@ function ClienteModal({
     try {
       const body = {
         nombre_comprador: nombre,
+        email: email || null,
+        telefono: telefono || null,
         descripcion_lote: descLote || null,
         precio_neto: Number(precioNeto),
         enganche: Number(enganche),
@@ -97,7 +103,20 @@ function ClienteModal({
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
 
-          {/* Descripción lote */}
+          {/* Email + Teléfono */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Correo electrónico</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="cliente@email.com"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+              <p className="text-xs text-gray-400 mt-1">Recibirá confirmaciones de pago</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label>
+              <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="Ej. 5555-1234"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+            </div>
+          </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Descripción del Lote</label>
             <input type="text" value={descLote} onChange={e => setDescLote(e.target.value)} placeholder="Ej. Manzana A, Lote 12 — 120m²"
