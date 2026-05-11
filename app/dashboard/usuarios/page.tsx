@@ -248,7 +248,8 @@ export default function UsuariosPage() {
         ) : error ? (
           <div className="py-8 text-center text-sm text-red-500">{error}</div>
         ) : (
-        <div className="overflow-x-auto"><table className="w-full text-sm">
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Usuario</th>
@@ -317,6 +318,55 @@ export default function UsuariosPage() {
             )}
           </tbody>
         </table></div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden">
+          {usuarios.length === 0 ? (
+            <div className="py-10 text-center text-sm text-gray-400">No hay usuarios registrados.</div>
+          ) : usuarios.map(u => (
+            <div key={u.id} className="border-b border-gray-100 last:border-0 px-4 py-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-[#1a1a1a] text-[#d4a843] flex items-center justify-center text-xs font-bold shrink-0">
+                    {u.nombre.split(' ').slice(0, 2).map(n => n[0]).join('')}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm">{u.nombre}</p>
+                    <p className="text-xs text-gray-400">{u.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => toggleActivo(u)}
+                    disabled={u.id === meId || readOnly}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${u.activo ? 'bg-[#d4a843]' : 'bg-gray-200'} ${(u.id === meId || readOnly) ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${u.activo ? 'translate-x-4' : 'translate-x-1'}`} />
+                  </button>
+                  {!readOnly && (
+                    <>
+                      <button onClick={() => openEditar(u)} className="p-1.5 text-gray-400 hover:text-[#d4a843] hover:bg-[#fdf3d9] rounded-lg transition-colors">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => handleDelete(u.id)} disabled={u.id === meId}
+                        className={`p-1.5 rounded-lg transition-colors ${u.id === meId ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}>
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-xs pl-[2.75rem]">
+                <span className="font-mono text-gray-500">@{u.username}</span>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  u.rol === 'admin' ? 'bg-[#fdf3d9] text-[#b8922e]' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {u.rol === 'admin' ? 'Administrador' : 'Solo lectura'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
         )}
         <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-400">
           {usuarios.filter(u => u.activo).length} usuarios activos de {usuarios.length} totales

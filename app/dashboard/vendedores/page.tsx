@@ -484,7 +484,8 @@ export default function VendedoresPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto">
             {loading ? (
               <div className="py-16 text-center text-sm text-gray-400">Cargando...</div>
             ) : (
@@ -559,6 +560,64 @@ export default function VendedoresPage() {
                 </tbody>
               </table>
             )}
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden">
+            {loading ? (
+              <div className="py-10 text-center text-sm text-gray-400">Cargando...</div>
+            ) : filtrados.length === 0 ? (
+              <div className="py-10 text-center text-sm text-gray-400">
+                {busqueda ? 'Sin resultados' : 'No hay vendedores registrados'}
+              </div>
+            ) : filtrados.map(v => (
+              <div key={v.id} className="border-b border-gray-100 last:border-0 px-4 py-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-[#1a1a1a] text-[#d4a843] flex items-center justify-center text-xs font-bold shrink-0">
+                      {v.nombre.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 text-sm">{v.nombre}</p>
+                      <p className="text-xs text-gray-500">{v.telefono ?? ''}{v.email ? ` · ${v.email}` : ''}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => setComisionVendedor(v)} title="Ver ventas"
+                      className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+                        <polyline points="16 7 22 7 22 13"/>
+                      </svg>
+                    </button>
+                    {!readOnly && (
+                    <button onClick={() => { setEditVendedor(v); setModalVendedor(true); }} title="Editar"
+                      className="p-1.5 text-gray-400 hover:text-[#d4a843] hover:bg-[#fdf3d9] rounded-lg transition-colors">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </button>
+                    )}
+                    {!readOnly && (
+                    <button onClick={() => handleDelete(v.id)} title="Eliminar"
+                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                        <path d="M10 11v6M14 11v6M9 6V4h6v2"/>
+                      </svg>
+                    </button>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pl-[2.75rem]">
+                  <div><span className="text-gray-400">NIT: </span><span className="font-mono text-gray-700">{v.nit ?? '—'}</span></div>
+                  <div><span className="text-gray-400">DPI: </span><span className="font-mono text-gray-700">{v.dpi ?? '—'}</span></div>
+                  <div><span className="text-gray-400">Ventas: </span><span className="font-semibold text-gray-900">{v.total_ventas}</span></div>
+                  <div><span className="text-gray-400">Comisiones: </span><span className="font-bold text-[#d4a843]">{fmt(Number(v.total_comisiones))}</span></div>
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="px-5 py-3 border-t border-gray-100 text-xs text-gray-400">

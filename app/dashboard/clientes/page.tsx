@@ -415,7 +415,8 @@ export default function ClientesPage() {
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
@@ -475,6 +476,56 @@ export default function ClientesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden">
+          {loading ? (
+            <div className="py-10 text-center text-sm text-gray-400">Cargando...</div>
+          ) : filtrados.length === 0 ? (
+            <div className="py-10 text-center text-sm text-gray-400">
+              {busqueda ? 'Sin resultados para la búsqueda' : 'No hay clientes registrados'}
+            </div>
+          ) : filtrados.map(c => (
+            <div key={c.id} className="border-b border-gray-100 last:border-0 px-4 py-3 flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-gray-900 text-sm">{c.nombre_comprador}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{c.descripcion_lote ?? '—'}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => setDetalleCliente(c)}
+                    className="p-1.5 rounded-lg text-gray-500 hover:text-blue-500 hover:bg-blue-50" title="Ver detalle">
+                    <Eye size={14} />
+                  </button>
+                  {!readOnly && (
+                    <button onClick={() => openEdit(c)}
+                      className="p-1.5 rounded-lg text-gray-500 hover:text-[#d4a843] hover:bg-amber-50">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                  )}
+                  {!readOnly && (
+                    <button onClick={() => handleDelete(c.id)}
+                      className="p-1.5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <div><span className="text-gray-400">Precio neto: </span><span className="font-mono font-medium text-gray-800">{fmt(c.precio_neto)}</span></div>
+                <div><span className="text-gray-400">Enganche: </span><span className="font-mono font-medium text-gray-800">{fmt(c.enganche)}</span></div>
+                <div><span className="text-gray-400">Cuotas: </span><span className="font-medium text-gray-800">{c.num_cuotas} × {fmt(c.valor_cuota)}</span></div>
+                <div><span className="text-gray-400">Entidad: </span><span className="text-gray-700">{c.entidad_bancaria ?? '—'}</span></div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
