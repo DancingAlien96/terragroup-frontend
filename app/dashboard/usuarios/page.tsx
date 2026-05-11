@@ -248,6 +248,7 @@ export default function UsuariosPage() {
         ) : error ? (
           <div className="py-8 text-center text-sm text-red-500">{error}</div>
         ) : (
+        <>
         {/* Desktop table */}
         <div className="hidden md:block overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-gray-50">
@@ -367,6 +368,7 @@ export default function UsuariosPage() {
             </div>
           ))}
         </div>
+        </>
         )}
         <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 text-xs text-gray-400">
           {usuarios.filter(u => u.activo).length} usuarios activos de {usuarios.length} totales
