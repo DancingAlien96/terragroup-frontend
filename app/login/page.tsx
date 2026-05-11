@@ -34,9 +34,13 @@ export default function LoginPage() {
         return;
       }
 
+      // Limpiar sesión anterior antes de escribir la nueva
+      localStorage.removeItem('tg_token');
+      localStorage.removeItem('tg_user');
+      document.cookie = 'tg_token=; path=/; max-age=0; SameSite=Lax';
+
       localStorage.setItem('tg_token', data.data.token);
       localStorage.setItem('tg_user', JSON.stringify(data.data.user));
-      // Set cookie for middleware route protection
       document.cookie = `tg_token=${data.data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
       router.push('/dashboard');
     } catch {

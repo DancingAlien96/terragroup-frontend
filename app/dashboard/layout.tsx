@@ -152,7 +152,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   function handleLogout() {
     logout();
-    document.cookie = 'tg_token=; path=/; max-age=0';
     router.push('/login');
   }
 

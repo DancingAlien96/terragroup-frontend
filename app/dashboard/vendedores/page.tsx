@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { isReadOnly } from '@/lib/auth';
 
 /* ── Types ─────────────────────────────────────────────────── */
 interface Vendedor {
   id: number;
   nombre: string;
-  edad: number | null;
+  nit: string | null;
   telefono: string | null;
   email: string | null;
   dpi: string | null;
@@ -48,7 +49,7 @@ function VendedorModal({
 }) {
   const [form, setForm] = useState({
     nombre:    vendedor?.nombre    ?? '',
-    edad:      String(vendedor?.edad ?? ''),
+    nit:       vendedor?.nit       ?? '',
     telefono:  vendedor?.telefono  ?? '',
     email:     vendedor?.email     ?? '',
     dpi:       vendedor?.dpi       ?? '',
@@ -63,7 +64,7 @@ function VendedorModal({
     try {
       const body = {
         nombre:    form.nombre,
-        edad:      form.edad ? Number(form.edad) : null,
+        nit:       form.nit       || null,
         telefono:  form.telefono  || null,
         email:     form.email     || null,
         dpi:       form.dpi       || null,
@@ -101,8 +102,8 @@ function VendedorModal({
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Edad</label>
-            <input type="number" value={form.edad} onChange={e => set('edad', e.target.value)} placeholder="Ej. 28"
+            <label className="block text-xs font-medium text-gray-600 mb-1">NIT</label>
+            <input value={form.nit} onChange={e => set('nit', e.target.value)} placeholder="Ej. 123456-7"
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
           <div>
@@ -366,6 +367,7 @@ function ComisionModal({
 
 /* ── Page ───────────────────────────────────────────────────── */
 export default function VendedoresPage() {
+  const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
   const [vendedores, setVendedores]           = useState<Vendedor[]>([]);
   const [loading, setLoading]                 = useState(true);
   const [busqueda, setBusqueda]               = useState('');
@@ -420,6 +422,7 @@ export default function VendedoresPage() {
           <button
             onClick={() => { setEditVendedor(null); setModalVendedor(true); }}
             className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors shrink-0"
+            style={{ display: readOnly ? 'none' : undefined }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -490,7 +493,7 @@ export default function VendedoresPage() {
                   <tr className="text-xs text-gray-400 border-b border-gray-100">
                     <th className="px-5 py-3 text-left font-medium">Vendedor</th>
                     <th className="px-5 py-3 text-left font-medium">Contacto</th>
-                    <th className="px-5 py-3 text-center font-medium">Edad</th>
+                    <th className="px-5 py-3 text-left font-medium">NIT</th>
                     <th className="px-5 py-3 text-left font-medium">DPI</th>
                     <th className="px-5 py-3 text-center font-medium">Ventas</th>
                     <th className="px-5 py-3 text-right font-medium">Total comisiones</th>
@@ -518,7 +521,7 @@ export default function VendedoresPage() {
                         <p>{v.telefono ?? '—'}</p>
                         <p className="text-gray-400">{v.email ?? ''}</p>
                       </td>
-                      <td className="px-5 py-3.5 text-center text-gray-600">{v.edad ?? '—'}</td>
+                      <td className="px-5 py-3.5 text-xs text-gray-500 font-mono">{v.nit ?? '—'}</td>
                       <td className="px-5 py-3.5 text-xs text-gray-500 font-mono">{v.dpi ?? '—'}</td>
                       <td className="px-5 py-3.5 text-center font-semibold text-gray-900">{v.total_ventas}</td>
                       <td className="px-5 py-3.5 text-right font-bold text-[#d4a843]">{fmt(Number(v.total_comisiones))}</td>
@@ -531,6 +534,7 @@ export default function VendedoresPage() {
                               <polyline points="16 7 22 7 22 13"/>
                             </svg>
                           </button>
+                          {!readOnly && (
                           <button onClick={() => { setEditVendedor(v); setModalVendedor(true); }} title="Editar"
                             className="p-1.5 text-gray-400 hover:text-[#d4a843] hover:bg-[#fdf3d9] rounded-lg transition-colors">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -538,6 +542,8 @@ export default function VendedoresPage() {
                               <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                             </svg>
                           </button>
+                          )}
+                          {!readOnly && (
                           <button onClick={() => handleDelete(v.id)} title="Eliminar"
                             className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -545,6 +551,7 @@ export default function VendedoresPage() {
                               <path d="M10 11v6M14 11v6M9 6V4h6v2"/>
                             </svg>
                           </button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { Eye, X } from 'lucide-react';
+import { isReadOnly } from '@/lib/auth';
 
 /* ── Types ─────────────────────────────────────────────────── */
 type Entidad = 'Banrural' | 'Industrial' | 'G&T' | 'BAC';
@@ -18,12 +20,139 @@ interface Cliente {
   valor_cuota: number;
   fecha_deposito: string;
   num_transferencia: string | null;
+  metodo_pago: string | null;
   entidad_bancaria: Entidad | null;
   activo: boolean;
 }
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(n);
+
+function fmtDate(d: string | null) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+/* ── DetalleModal ───────────────────────────────────────────── */
+function DetalleModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
+  const [pagos, setPagos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.pagos.list()
+      .then((all: any[]) => setPagos(all.filter((p: any) => p.cliente_id === cliente.id)))
+      .catch(() => setPagos([]))
+      .finally(() => setLoading(false));
+  }, [cliente.id]);
+
+  const totalPagado = pagos.reduce((s: number, p: any) => s + Number(p.monto), 0);
+  const totalEsperado = cliente.num_cuotas * cliente.valor_cuota;
+  const pendiente = totalEsperado - totalPagado;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">{cliente.nombre_comprador}</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{cliente.descripcion_lote ?? '—'}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-6 py-4 flex flex-col gap-5">
+          {/* Resumen financiero */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-green-50 rounded-xl p-3">
+              <p className="text-xs text-gray-500 mb-1">Total pagado</p>
+              <p className="font-bold text-green-700 text-sm">{fmt(totalPagado)}</p>
+              <p className="text-xs text-gray-400">{pagos.length} de {cliente.num_cuotas} cuotas</p>
+            </div>
+            <div className="bg-amber-50 rounded-xl p-3">
+              <p className="text-xs text-gray-500 mb-1">Pendiente</p>
+              <p className="font-bold text-amber-700 text-sm">{fmt(pendiente > 0 ? pendiente : 0)}</p>
+              <p className="text-xs text-gray-400">{Math.max(0, cliente.num_cuotas - pagos.length)} cuotas restantes</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3">
+              <p className="text-xs text-gray-500 mb-1">Valor total</p>
+              <p className="font-bold text-gray-700 text-sm">{fmt(totalEsperado)}</p>
+              <p className="text-xs text-gray-400">Enganche: {fmt(cliente.enganche)}</p>
+            </div>
+          </div>
+
+          {/* Info cliente */}
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-400">Fecha depósito</span>
+              <span className="font-medium text-gray-700">{fmtDate(cliente.fecha_deposito)}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-400">Entidad bancaria</span>
+              <span className="font-medium text-gray-700">{cliente.entidad_bancaria ?? '—'}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-400">N° transferencia</span>
+              <span className="font-medium text-gray-700">{cliente.num_transferencia ?? '—'}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-400">Valor por cuota</span>
+              <span className="font-medium text-gray-700">{fmt(cliente.valor_cuota)}</span>
+            </div>
+          </div>
+
+          {/* Historial de pagos */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800 mb-2">Historial de pagos</h3>
+            {loading ? (
+              <p className="text-sm text-gray-400 py-4 text-center">Cargando pagos...</p>
+            ) : pagos.length === 0 ? (
+              <p className="text-sm text-gray-400 py-4 text-center">Sin pagos registrados</p>
+            ) : (
+              <div className="border border-gray-100 rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs">Cuota</th>
+                      <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs">Fecha pago</th>
+                      <th className="text-right px-3 py-2 font-semibold text-gray-600 text-xs">Monto</th>
+                      <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs">Método</th>
+                      <th className="text-center px-3 py-2 font-semibold text-gray-600 text-xs">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagos
+                      .sort((a: any, b: any) => (a.num_cuota ?? 0) - (b.num_cuota ?? 0))
+                      .map((p: any) => (
+                        <tr key={p.id} className="border-b border-gray-50 last:border-0">
+                          <td className="px-3 py-2 text-gray-700 font-medium">#{p.num_cuota ?? '—'}</td>
+                          <td className="px-3 py-2 text-gray-600">{fmtDate(p.fecha_pago)}</td>
+                          <td className="px-3 py-2 text-right font-mono text-gray-800">{fmt(Number(p.monto))}</td>
+                          <td className="px-3 py-2 text-gray-600 capitalize">{p.metodo_pago ?? '—'}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                              p.estado === 'pagado' ? 'bg-green-100 text-green-700' :
+                              p.estado === 'vencido' ? 'bg-red-100 text-red-600' :
+                              'bg-amber-100 text-amber-700'
+                            }`}>
+                              {p.estado}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ── Modal ──────────────────────────────────────────────────── */
 function ClienteModal({
@@ -46,6 +175,7 @@ function ClienteModal({
   const [numCuotas, setNumCuotas] = useState(String(cliente?.num_cuotas ?? ''));
   const [valorCuota, setValorCuota] = useState(String(cliente?.valor_cuota ?? ''));
   const [fechaDeposito, setFechaDeposito] = useState(cliente?.fecha_deposito ?? today);
+  const [metodo, setMetodo] = useState(cliente?.metodo_pago ?? 'Transferencia');
   const [numTransferencia, setNumTransferencia] = useState(cliente?.num_transferencia ?? '');
   const [entidad, setEntidad] = useState<Entidad | ''>(cliente?.entidad_bancaria ?? '');
   const [saving, setSaving] = useState(false);
@@ -65,6 +195,7 @@ function ClienteModal({
         valor_cuota: Number(valorCuota),
         fecha_deposito: fechaDeposito,
         num_transferencia: numTransferencia || null,
+        metodo_pago: metodo || null,
         entidad_bancaria: entidad || null,
       };
       if (cliente) {
@@ -158,12 +289,17 @@ function ClienteModal({
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
 
-          {/* Transferencia + Entidad */}
+          {/* Método de Pago */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">N° de Transferencia</label>
-              <input type="text" value={numTransferencia} onChange={e => setNumTransferencia(e.target.value)} placeholder="Ej. 00123456"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+              <label className="block text-xs font-medium text-gray-600 mb-1">Método de Pago</label>
+              <select value={metodo} onChange={e => setMetodo(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
+                <option>Transferencia</option>
+                <option>Efectivo</option>
+                <option>Depósito</option>
+                <option>Cheque</option>
+              </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Entidad Bancaria</label>
@@ -177,6 +313,18 @@ function ClienteModal({
               </select>
             </div>
           </div>
+
+          {/* Referencia dinámica según método */}
+          {metodo !== 'Efectivo' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                {metodo === 'Cheque' ? 'Número de Referencia' : metodo === 'Depósito' ? 'Número de Boleta' : 'N° de Transferencia'}
+              </label>
+              <input type="text" value={numTransferencia} onChange={e => setNumTransferencia(e.target.value)}
+                placeholder={metodo === 'Cheque' ? 'Ej. CHQ-001234' : metodo === 'Depósito' ? 'Ej. BOL-567890' : 'Ej. 00123456'}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+            </div>
+          )}
 
           <div className="flex gap-3 mt-2">
             <button type="button" onClick={onClose} disabled={saving}
@@ -201,6 +349,8 @@ export default function ClientesPage() {
   const [busqueda, setBusqueda] = useState('');
   const [modal, setModal] = useState(false);
   const [editCliente, setEditCliente] = useState<Cliente | null>(null);
+  const [detalleCliente, setDetalleCliente] = useState<Cliente | null>(null);
+  const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -243,7 +393,9 @@ export default function ClientesPage() {
           <p className="text-sm text-gray-500 mt-0.5">Registro de compradores y sus lotes</p>
         </div>
         <button onClick={openNew}
-          className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors">
+          className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors"
+          style={{ display: readOnly ? 'none' : undefined }}
+        >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
@@ -295,15 +447,23 @@ export default function ClientesPage() {
                   <td className="px-4 py-3 text-gray-600">{c.entidad_bancaria ?? '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
+                      <button onClick={() => setDetalleCliente(c)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-blue-500 hover:bg-blue-50 transition-colors" title="Ver detalle">
+                        <Eye size={14} />
+                      </button>
                       <button onClick={() => openEdit(c)}
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-[#d4a843] hover:bg-amber-50 transition-colors">
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-[#d4a843] hover:bg-amber-50 transition-colors"
+                        style={{ display: readOnly ? 'none' : undefined }}
+                      >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                         </svg>
                       </button>
                       <button onClick={() => handleDelete(c.id)}
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors">
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        style={{ display: readOnly ? 'none' : undefined }}
+                      >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
                           <path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
@@ -323,6 +483,12 @@ export default function ClientesPage() {
           cliente={editCliente}
           onClose={() => setModal(false)}
           onSaved={load}
+        />
+      )}
+      {detalleCliente && (
+        <DetalleModal
+          cliente={detalleCliente}
+          onClose={() => setDetalleCliente(null)}
         />
       )}
     </div>

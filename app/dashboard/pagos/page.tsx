@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
+import { isReadOnly } from '@/lib/auth';
 
 /* ── Types ─────────────────────────────────────────────────── */
 interface Cliente {
@@ -134,6 +135,9 @@ function PagoModal({
   const [monto, setMonto] = useState(String(pago?.monto ?? ''));
   const [metodo, setMetodo] = useState(pago?.metodo_pago ?? 'Transferencia');
   const [referencia, setReferencia] = useState(pago?.referencia ?? '');
+  const [fechaPago, setFechaPago] = useState(
+    pago?.fecha_pago ?? new Date().toISOString().split('T')[0]
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -155,15 +159,14 @@ function PagoModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const today = new Date().toISOString().split('T')[0];
     try {
       const body = {
         cliente_id: clienteSel?.id ?? null,
         contrato_id: pago?.contrato_id ?? null,
         propietario_id: pago?.propietario_id ?? null,
         monto: Number(monto),
-        fecha_vencimiento: today,
-        fecha_pago: today,
+        fecha_vencimiento: fechaPago,
+        fecha_pago: fechaPago,
         metodo_pago: metodo,
         referencia: referencia || null,
         estado: 'pagado',
@@ -213,6 +216,16 @@ function PagoModal({
             </div>
           )}
 
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de pago *</label>
+            <input type="date" value={fechaPago} onChange={e => setFechaPago(e.target.value)} required
+              max={new Date().toISOString().split('T')[0]}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+            {fechaPago < new Date().toISOString().split('T')[0] && (
+              <p className="text-xs text-amber-600 mt-1">⚠️ Estás registrando un pago con fecha retroactiva</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Monto (Q) *</label>
@@ -260,6 +273,7 @@ function PagoModal({
 
 /* ── Page ───────────────────────────────────────────────────── */
 export default function GestionPagosPage() {
+  const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -308,6 +322,7 @@ export default function GestionPagosPage() {
           <button
             onClick={() => { setEditPago(null); setModal(true); }}
             className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors shrink-0"
+            style={{ display: readOnly ? 'none' : undefined }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -372,6 +387,7 @@ export default function GestionPagosPage() {
                       <td className="px-5 py-3.5 text-gray-500">{pago.metodo_pago ?? '—'}</td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-center gap-2">
+                          {!readOnly && (
                           <button onClick={() => { setEditPago(pago); setModal(true); }} title="Editar"
                             className="p-1.5 text-gray-400 hover:text-[#d4a843] hover:bg-[#fdf3d9] rounded-lg transition-colors">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -379,6 +395,8 @@ export default function GestionPagosPage() {
                               <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                             </svg>
                           </button>
+                          )}
+                          {!readOnly && (
                           <button onClick={() => handleDelete(pago.id)} title="Eliminar"
                             className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -386,6 +404,7 @@ export default function GestionPagosPage() {
                               <path d="M10 11v6M14 11v6M9 6V4h6v2"/>
                             </svg>
                           </button>
+                          )}
                         </div>
                       </td>
                     </tr>

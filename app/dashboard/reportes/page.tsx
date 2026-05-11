@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { BarChart2, Clock, Users, UserCheck, Download, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BarChart2, Clock, Users, UserCheck, Download, CheckCircle2, TrendingUp } from 'lucide-react';
 import { api } from '@/lib/api';
 
-type TipoReporte = 'cobranza' | 'cartera' | 'clientes' | 'vendedores';
+type TipoReporte = 'cobranza' | 'cartera' | 'clientes' | 'vendedores' | 'comisiones_mes';
 type FormatoExport = 'PDF' | 'Excel' | 'CSV';
 
 const TIPOS_REPORTE = [
-  { id: 'cobranza'   as TipoReporte, label: 'Cobranza General',         icon: BarChart2 },
-  { id: 'cartera'    as TipoReporte, label: 'Clientes con Pago Pendiente', icon: Clock },
-  { id: 'clientes'   as TipoReporte, label: 'Reporte de Clientes',      icon: Users },
-  { id: 'vendedores' as TipoReporte, label: 'Vendedores y Comisiones',  icon: UserCheck },
+  { id: 'cobranza'      as TipoReporte, label: 'Cobranza General',           icon: BarChart2 },
+  { id: 'cartera'       as TipoReporte, label: 'Clientes con Pago Pendiente', icon: Clock },
+  { id: 'clientes'      as TipoReporte, label: 'Reporte de Clientes',        icon: Users },
+  { id: 'vendedores'    as TipoReporte, label: 'Vendedores y Comisiones',    icon: UserCheck },
+  { id: 'comisiones_mes' as TipoReporte, label: 'Comisiones por Mes',        icon: TrendingUp },
 ];
 
 const fmt = (n: number) =>
@@ -52,6 +53,7 @@ export default function ReportesPage() {
   const [clientes, setClientes] = useState<any[]>([]);
   const [pagos, setPagos] = useState<any[]>([]);
   const [vendedores, setVendedores] = useState<any[]>([]);
+  const [comisionesMes, setComisionesMes] = useState<{ mes: string; mes_key: string; vendedor: string; total: number; cantidad: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -60,11 +62,31 @@ export default function ReportesPage() {
       api.clientes.list().catch(() => []),
       api.pagos.list().catch(() => []),
       api.vendedores.list().catch(() => []),
-    ]).then(([rep, cli, pag, ven]) => {
+    ]).then(async ([rep, cli, pag, ven]) => {
       setReportData(rep);
       setClientes(cli ?? []);
       setPagos(pag ?? []);
       setVendedores(ven ?? []);
+      // Cargar comisiones de cada vendedor y agrupar por mes
+      const allComisiones: any[] = [];
+      await Promise.all((ven ?? []).map(async (v: any) => {
+        try {
+          const data = await api.vendedores.comisiones.list(v.id);
+          (data ?? []).forEach((c: any) => allComisiones.push({ ...c, vendedor_nombre: v.nombre }));
+        } catch { /* skip */ }
+      }));
+      // Agrupar por mes y vendedor
+      const mapa: Record<string, { mes: string; mes_key: string; vendedor: string; total: number; cantidad: number }> = {};
+      for (const c of allComisiones) {
+        const raw = c.fecha_venta instanceof Date ? c.fecha_venta : new Date(c.fecha_venta);
+        const mes_key = `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, '0')}`;
+        const mes = raw.toLocaleDateString('es-GT', { month: 'short', year: 'numeric' });
+        const key = `${mes_key}__${c.vendedor_nombre}`;
+        if (!mapa[key]) mapa[key] = { mes, mes_key, vendedor: c.vendedor_nombre, total: 0, cantidad: 0 };
+        mapa[key].total += Number(c.monto_comision);
+        mapa[key].cantidad += 1;
+      }
+      setComisionesMes(Object.values(mapa).sort((a, b) => b.mes_key.localeCompare(a.mes_key)));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -116,6 +138,13 @@ export default function ReportesPage() {
         title: 'Reporte de Clientes',
         headers: ['Nombre', 'Lote', 'Precio Neto (Q)', 'Enganche (Q)', 'Cuotas', 'Valor Cuota (Q)', 'Fecha Deposito'],
         rows: clientes.map((c: any) => [c.nombre_comprador, c.descripcion_lote ?? '—', Number(c.precio_neto), Number(c.enganche), Number(c.num_cuotas), Number(c.valor_cuota), fmtDate(c.fecha_deposito)]),
+      };
+    }
+    if (tipo === 'comisiones_mes') {
+      return {
+        title: 'Comisiones por Mes',
+        headers: ['Mes', 'Vendedor', 'Cantidad Ventas', 'Total Comisiones (Q)'],
+        rows: comisionesMes.map(r => [r.mes, r.vendedor, r.cantidad, r.total]),
       };
     }
     return {
@@ -354,6 +383,58 @@ export default function ReportesPage() {
                         <td className="px-5 py-3 text-right">{fmt(Number(c.valor_cuota))}</td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Comisiones por Mes */}
+          {tipo === 'comisiones_mes' && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h3 className="font-semibold text-[#1a1a1a]">Comisiones por Mes</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{loading ? '…' : `${comisionesMes.length} registro(s)`}</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-xs text-gray-400">
+                      <th className="px-5 py-3 text-left font-medium">Mes</th>
+                      <th className="px-5 py-3 text-left font-medium">Vendedor</th>
+                      <th className="px-5 py-3 text-right font-medium">Ventas</th>
+                      <th className="px-5 py-3 text-right font-medium">Total Comisiones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr><td colSpan={4} className="px-5 py-8 text-center text-gray-400">Cargando...</td></tr>
+                    ) : comisionesMes.length === 0 ? (
+                      <tr><td colSpan={4} className="px-5 py-8 text-center text-gray-400">Sin comisiones registradas</td></tr>
+                    ) : (() => {
+                      // Totales por mes para subtotales
+                      const meses = [...new Set(comisionesMes.map(r => r.mes_key))];
+                      return meses.map(mk => {
+                        const filas = comisionesMes.filter(r => r.mes_key === mk);
+                        const totalMes = filas.reduce((s, r) => s + r.total, 0);
+                        return (
+                          <React.Fragment key={mk}>
+                            {filas.map((r, i) => (
+                              <tr key={`${mk}-${i}`} className="border-b border-gray-50 hover:bg-gray-50">
+                                <td className="px-5 py-3 text-gray-500">{i === 0 ? r.mes : ''}</td>
+                                <td className="px-5 py-3 font-medium text-[#1a1a1a]">{r.vendedor}</td>
+                                <td className="px-5 py-3 text-right">{r.cantidad}</td>
+                                <td className="px-5 py-3 text-right font-semibold text-[#d4a843]">{fmt(r.total)}</td>
+                              </tr>
+                            ))}
+                            <tr key={`${mk}-sub`} className="bg-amber-50 border-b border-amber-100">
+                              <td className="px-5 py-2 text-xs font-semibold text-amber-700" colSpan={3}>Subtotal {filas[0].mes}</td>
+                              <td className="px-5 py-2 text-right text-sm font-bold text-amber-700">{fmt(totalMes)}</td>
+                            </tr>
+                          </React.Fragment>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>

@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, X } from 'lucide-react';
 import { api } from '@/lib/api';
-import { getStoredUser } from '@/lib/auth';
+import { getStoredUser, isReadOnly } from '@/lib/auth';
 
 interface Usuario {
   id: number;
   nombre: string;
   email: string;
   username: string;
+  rol: 'admin' | 'vendedor' | 'supervisor';
   activo: boolean;
   updated_at: string;
 }
@@ -39,6 +40,7 @@ function UsuarioModal({
   username, setUsername,
   usernameTouched, setUsernameTouched,
   password, setPassword,
+  rol, setRol,
   saving, onClose, onGuardar,
 }: {
   mode: ModalMode; editId: number | null; meId: number | null;
@@ -47,6 +49,7 @@ function UsuarioModal({
   username: string; setUsername: (v: string) => void;
   usernameTouched: boolean; setUsernameTouched: (v: boolean) => void;
   password: string; setPassword: (v: string) => void;
+  rol: string; setRol: (v: string) => void;
   saving: boolean; onClose: () => void; onGuardar: () => void;
 }) {
   // Auto-suggest username from name while user hasn't manually edited it
@@ -116,6 +119,15 @@ function UsuarioModal({
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] focus:border-transparent"
               />
             </div>
+            {/* Rol */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">Rol</label>
+              <select value={rol} onChange={e => setRol(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] focus:border-transparent">
+                <option value="admin">Administrador — acceso completo</option>
+                <option value="vendedor">Solo lectura — no puede modificar</option>
+              </select>
+            </div>
           </div>
           <div className="flex gap-3 px-6 pb-5">
             <button type="button" onClick={onClose} disabled={saving}
@@ -135,6 +147,7 @@ function UsuarioModal({
 
 export default function UsuariosPage() {
   const meId = typeof window !== 'undefined' ? (getStoredUser()?.id ?? null) : null;
+  const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,6 +163,7 @@ export default function UsuariosPage() {
   const [username, setUsername] = useState('');
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [password, setPassword] = useState('');
+  const [rol, setRol] = useState('admin');
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -162,7 +176,7 @@ export default function UsuariosPage() {
 
   function openCrear() {
     setModalMode('crear'); setEditId(null);
-    setNombre(''); setEmail(''); setUsername(''); setUsernameTouched(false); setPassword('');
+    setNombre(''); setEmail(''); setUsername(''); setUsernameTouched(false); setPassword(''); setRol('admin');
     setShowModal(true);
   }
 
@@ -171,6 +185,7 @@ export default function UsuariosPage() {
     setNombre(u.nombre); setEmail(u.email); setUsername(u.username);
     setUsernameTouched(true);
     setPassword('');
+    setRol(u.rol);
     setShowModal(true);
   }
 
@@ -180,9 +195,9 @@ export default function UsuariosPage() {
     setSaving(true);
     try {
       if (modalMode === 'crear') {
-        await api.usuarios.create({ nombre, email, username, password, rol: 'admin' });
+        await api.usuarios.create({ nombre, email, username, password, rol });
       } else if (editId !== null) {
-        const body: any = { nombre, email, username };
+        const body: any = { nombre, email, username, rol };
         if (password) body.password = password;
         await api.usuarios.update(editId, body);
       }
@@ -215,13 +230,15 @@ export default function UsuariosPage() {
           <h1 className="text-2xl font-bold text-[#1a1a1a]">Usuarios</h1>
           <p className="text-sm text-gray-500 mt-0.5">Administradores con acceso al sistema</p>
         </div>
-        <button
-          onClick={openCrear}
-          className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold px-4 py-2.5 rounded-lg transition-colors text-sm"
-        >
-          <Plus size={15} />
-          Nuevo Usuario
-        </button>
+        {!readOnly && (
+          <button
+            onClick={openCrear}
+            className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold px-4 py-2.5 rounded-lg transition-colors text-sm"
+          >
+            <Plus size={15} />
+            Nuevo Usuario
+          </button>
+        )}
       </div>
 
       {/* Tabla */}
@@ -236,9 +253,10 @@ export default function UsuariosPage() {
             <tr>
               <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Usuario</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Username</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Rol</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Actualizado</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</th>
+              {!readOnly && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -256,18 +274,26 @@ export default function UsuariosPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-600 text-xs font-mono">{u.username}</td>
+                <td className="px-4 py-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    u.rol === 'admin' ? 'bg-[#fdf3d9] text-[#b8922e]' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {u.rol === 'admin' ? 'Administrador' : 'Solo lectura'}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{new Date(u.updated_at).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                 <td className="px-4 py-3">
                   <button
                     onClick={() => toggleActivo(u)}
-                    disabled={u.id === meId}
+                    disabled={u.id === meId || readOnly}
                     title={u.id === meId ? 'No puedes desactivarte a ti mismo' : u.activo ? 'Desactivar' : 'Activar'}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${u.activo ? 'bg-[#d4a843]' : 'bg-gray-200'} ${u.id === meId ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${u.activo ? 'bg-[#d4a843]' : 'bg-gray-200'} ${(u.id === meId || readOnly) ? 'opacity-40 cursor-not-allowed' : ''}`}
                   >
                     <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${u.activo ? 'translate-x-4' : 'translate-x-1'}`} />
                   </button>
                 </td>
                 <td className="px-4 py-3">
+                  {!readOnly && (
                   <div className="flex gap-1">
                     <button onClick={() => openEditar(u)} className="p-1.5 text-gray-400 hover:text-[#d4a843] hover:bg-[#fdf3d9] rounded-lg transition-colors" title="Editar">
                       <Pencil size={14} />
@@ -280,12 +306,13 @@ export default function UsuariosPage() {
                       <Trash2 size={14} />
                     </button>
                   </div>
+                  )}
                 </td>
               </tr>
             ))}
             {usuarios.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-12 text-center text-sm text-gray-400">No hay usuarios registrados.</td>
+                <td colSpan={readOnly ? 5 : 6} className="px-5 py-12 text-center text-sm text-gray-400">No hay usuarios registrados.</td>
               </tr>
             )}
           </tbody>
@@ -307,6 +334,7 @@ export default function UsuariosPage() {
             username={username} setUsername={setUsername}
             usernameTouched={usernameTouched} setUsernameTouched={setUsernameTouched}
             password={password} setPassword={setPassword}
+            rol={rol} setRol={setRol}
             saving={saving}
             onClose={() => setShowModal(false)}
             onGuardar={handleGuardar}

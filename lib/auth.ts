@@ -35,3 +35,10 @@ export function logout(): void {
   // Clear the cookie used by middleware
   document.cookie = 'tg_token=; path=/; max-age=0; SameSite=Lax';
 }
+
+/** Devuelve true si el usuario actual solo tiene permiso de lectura (rol vendedor/supervisor) */
+export function isReadOnly(): boolean {
+  if (typeof window === 'undefined') return true;
+  const u = getStoredUser();
+  return u?.rol !== 'admin' && u?.rol !== 'superadmin';
+}
