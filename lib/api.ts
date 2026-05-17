@@ -94,6 +94,12 @@ export const api = {
     delete: (id: number) => request<any>(`/api/clientes/${id}`, { method: 'DELETE' }),
   },
 
+  expedientes: {
+    list: (clienteId: number) => request<any[]>(`/api/expedientes?cliente_id=${clienteId}`),
+    create: (body: unknown) => request<any>('/api/expedientes', { method: 'POST', body: JSON.stringify(body) }),
+    delete: (id: number) => request<any>(`/api/expedientes/${id}`, { method: 'DELETE' }),
+  },
+
   empresas: {
     register: (body: unknown) => request<any>('/api/empresas/register', { method: 'POST', body: JSON.stringify(body) }),
     list: () => request<any[]>('/api/empresas'),

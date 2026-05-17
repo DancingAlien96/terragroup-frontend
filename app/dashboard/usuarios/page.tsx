@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { getStoredUser, isReadOnly } from '@/lib/auth';
+import { useDialog } from '@/lib/useDialog';
 
 interface Usuario {
   id: number;
@@ -148,6 +149,7 @@ function UsuarioModal({
 export default function UsuariosPage() {
   const meId = typeof window !== 'undefined' ? (getStoredUser()?.id ?? null) : null;
   const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
+  const { showAlert, showConfirm, DialogJSX } = useDialog();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -203,15 +205,15 @@ export default function UsuariosPage() {
       }
       setShowModal(false);
       await load();
-    } catch (e: any) { alert(e.message ?? 'Error al guardar'); }
+    } catch (e: any) { showAlert(e.message ?? 'Error al guardar'); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: number) {
-    if (id === meId) { alert('No puedes eliminar tu propia cuenta.'); return; }
-    if (!confirm('¿Eliminar este usuario?')) return;
+    if (id === meId) { showAlert('No puedes eliminar tu propia cuenta.', 'info'); return; }
+    if (!await showConfirm('¿Eliminar este usuario?', { description: 'Esta acción no se puede deshacer.', danger: true, confirmLabel: 'Eliminar' })) return;
     try { await api.usuarios.delete(id); await load(); }
-    catch (e: any) { alert(e.message ?? 'Error al eliminar'); }
+    catch (e: any) { showAlert(e.message ?? 'Error al eliminar'); }
   }
 
   async function toggleActivo(u: Usuario) {
@@ -219,7 +221,7 @@ export default function UsuariosPage() {
     try {
       await api.usuarios.update(u.id, { activo: !u.activo });
       setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, activo: !x.activo } : x));
-    } catch (e: any) { alert(e.message ?? 'Error al actualizar'); }
+    } catch (e: any) { showAlert(e.message ?? 'Error al actualizar'); }
   }
 
   return (
@@ -392,6 +394,7 @@ export default function UsuariosPage() {
             onGuardar={handleGuardar}
           />
         )}
+      {DialogJSX}
     </div>
   );
 }

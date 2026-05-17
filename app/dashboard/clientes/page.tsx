@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Eye, X } from 'lucide-react';
 import { isReadOnly } from '@/lib/auth';
+import { useDialog } from '@/lib/useDialog';
 
 /* ── Types ─────────────────────────────────────────────────── */
 type Entidad = 'Banrural' | 'Industrial' | 'G&T' | 'BAC';
@@ -18,6 +19,7 @@ interface Cliente {
   enganche: number;
   num_cuotas: number;
   valor_cuota: number;
+  cuota_inicio: number;
   fecha_deposito: string;
   num_transferencia: string | null;
   metodo_pago: string | null;
@@ -34,20 +36,50 @@ function fmtDate(d: string | null) {
 }
 
 /* ── DetalleModal ───────────────────────────────────────────── */
-function DetalleModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
+function DetalleModal({ cliente, onClose, onPagoActualizado }: {
+  cliente: Cliente;
+  onClose: () => void;
+  onPagoActualizado: () => void;
+}) {
+  const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
   const [pagos, setPagos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pagoEditando, setPagoEditando] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { showAlert, DialogJSX: DetalleDialogJSX } = useDialog();
 
-  useEffect(() => {
-    api.pagos.list()
-      .then((all: any[]) => setPagos(all.filter((p: any) => p.cliente_id === cliente.id)))
-      .catch(() => setPagos([]))
-      .finally(() => setLoading(false));
+  const cargarPagos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const all: any[] = await api.pagos.list();
+      setPagos(all.filter((p: any) => p.cliente_id === cliente.id));
+    } catch { setPagos([]); }
+    finally { setLoading(false); }
   }, [cliente.id]);
 
-  const totalPagado = pagos.reduce((s: number, p: any) => s + Number(p.monto), 0);
-  const totalEsperado = cliente.num_cuotas * cliente.valor_cuota;
-  const pendiente = totalEsperado - totalPagado;
+  useEffect(() => { cargarPagos(); }, [cargarPagos]);
+
+  const pagados   = pagos.filter((p: any) => p.estado === 'pagado');
+  const totalPagado   = pagados.reduce((s: number, p: any) => s + Number(p.monto), 0);
+  const saldoPendiente = Math.max(0, (cliente.precio_neto - cliente.enganche) - totalPagado);
+
+  async function marcarPagado(p: any, datos: { monto: number; fecha_pago: string; metodo_pago: string; referencia: string }) {
+    setSaving(true);
+    try {
+      await api.pagos.update(p.id, {
+        monto:        datos.monto,
+        fecha_pago:   datos.fecha_pago,
+        metodo_pago:  datos.metodo_pago,
+        referencia:   datos.referencia || null,
+        estado:       'pagado',
+        fecha_vencimiento: p.fecha_vencimiento,
+      });
+      setPagoEditando(null);
+      await cargarPagos();
+      onPagoActualizado();
+    } catch (e: any) { showAlert(e.message ?? 'Error'); }
+    finally { setSaving(false); }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
@@ -69,16 +101,16 @@ function DetalleModal({ cliente, onClose }: { cliente: Cliente; onClose: () => v
             <div className="bg-green-50 rounded-xl p-3">
               <p className="text-xs text-gray-500 mb-1">Total pagado</p>
               <p className="font-bold text-green-700 text-sm">{fmt(totalPagado)}</p>
-              <p className="text-xs text-gray-400">{pagos.length} de {cliente.num_cuotas} cuotas</p>
+              <p className="text-xs text-gray-400">{pagados.length} de {cliente.num_cuotas - (cliente.cuota_inicio - 1)} cuotas</p>
             </div>
             <div className="bg-amber-50 rounded-xl p-3">
-              <p className="text-xs text-gray-500 mb-1">Pendiente</p>
-              <p className="font-bold text-amber-700 text-sm">{fmt(pendiente > 0 ? pendiente : 0)}</p>
-              <p className="text-xs text-gray-400">{Math.max(0, cliente.num_cuotas - pagos.length)} cuotas restantes</p>
+              <p className="text-xs text-gray-500 mb-1">Saldo pendiente</p>
+              <p className="font-bold text-amber-700 text-sm">{fmt(saldoPendiente)}</p>
+              <p className="text-xs text-gray-400">{pagos.filter((p:any)=>p.estado==='pendiente').length} cuotas por pagar</p>
             </div>
             <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-500 mb-1">Valor total</p>
-              <p className="font-bold text-gray-700 text-sm">{fmt(totalEsperado)}</p>
+              <p className="text-xs text-gray-500 mb-1">Precio neto</p>
+              <p className="font-bold text-gray-700 text-sm">{fmt(cliente.precio_neto)}</p>
               <p className="text-xs text-gray-400">Enganche: {fmt(cliente.enganche)}</p>
             </div>
           </div>
@@ -103,43 +135,54 @@ function DetalleModal({ cliente, onClose }: { cliente: Cliente; onClose: () => v
             </div>
           </div>
 
-          {/* Historial de pagos */}
+          {/* Calendario de cuotas */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-800 mb-2">Historial de pagos</h3>
+            <h3 className="text-sm font-semibold text-gray-800 mb-2">Calendario de cuotas</h3>
             {loading ? (
-              <p className="text-sm text-gray-400 py-4 text-center">Cargando pagos...</p>
+              <p className="text-sm text-gray-400 py-4 text-center">Cargando...</p>
             ) : pagos.length === 0 ? (
-              <p className="text-sm text-gray-400 py-4 text-center">Sin pagos registrados</p>
+              <p className="text-sm text-gray-400 py-4 text-center">Sin cuotas generadas</p>
             ) : (
               <div className="border border-gray-100 rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
                       <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs">Cuota</th>
-                      <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs">Fecha pago</th>
+                      <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs">Vencimiento</th>
                       <th className="text-right px-3 py-2 font-semibold text-gray-600 text-xs">Monto</th>
-                      <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs">Método</th>
                       <th className="text-center px-3 py-2 font-semibold text-gray-600 text-xs">Estado</th>
+                      {!readOnly && <th className="px-3 py-2"></th>}
                     </tr>
                   </thead>
                   <tbody>
-                    {pagos
+                    {[...pagos]
                       .sort((a: any, b: any) => (a.num_cuota ?? 0) - (b.num_cuota ?? 0))
                       .map((p: any) => (
                         <tr key={p.id} className="border-b border-gray-50 last:border-0">
                           <td className="px-3 py-2 text-gray-700 font-medium">#{p.num_cuota ?? '—'}</td>
-                          <td className="px-3 py-2 text-gray-600">{fmtDate(p.fecha_pago)}</td>
+                          <td className="px-3 py-2 text-gray-600 text-xs">{fmtDate(p.fecha_pago ?? p.fecha_vencimiento)}</td>
                           <td className="px-3 py-2 text-right font-mono text-gray-800">{fmt(Number(p.monto))}</td>
-                          <td className="px-3 py-2 text-gray-600 capitalize">{p.metodo_pago ?? '—'}</td>
                           <td className="px-3 py-2 text-center">
                             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                              p.estado === 'pagado' ? 'bg-green-100 text-green-700' :
-                              p.estado === 'vencido' ? 'bg-red-100 text-red-600' :
+                              p.estado === 'pagado'   ? 'bg-green-100 text-green-700' :
+                              p.estado === 'vencido'  ? 'bg-red-100 text-red-600' :
                               'bg-amber-100 text-amber-700'
                             }`}>
                               {p.estado}
                             </span>
                           </td>
+                          {!readOnly && (
+                            <td className="px-3 py-2 text-center">
+                              {p.estado !== 'pagado' && (
+                                <button
+                                  onClick={() => setPagoEditando(p)}
+                                  className="text-xs text-[#b8922e] font-semibold hover:underline"
+                                >
+                                  Pagar
+                                </button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))
                     }
@@ -148,6 +191,79 @@ function DetalleModal({ cliente, onClose }: { cliente: Cliente; onClose: () => v
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Mini-modal para registrar pago */}
+      {pagoEditando && (
+        <PagarCuotaModal
+          pago={pagoEditando}
+          saving={saving}
+          onClose={() => setPagoEditando(null)}
+          onConfirm={marcarPagado}
+        />
+      )}
+      {DetalleDialogJSX}
+    </div>
+  );
+}
+
+/* ── PagarCuotaModal ────────────────────────────────────────── */
+function PagarCuotaModal({ pago, saving, onClose, onConfirm }: {
+  pago: any;
+  saving: boolean;
+  onClose: () => void;
+  onConfirm: (p: any, datos: { monto: number; fecha_pago: string; metodo_pago: string; referencia: string }) => void;
+}) {
+  const today = new Date().toISOString().split('T')[0];
+  const [monto, setMonto]       = useState(String(pago.monto));
+  const [fecha, setFecha]       = useState(pago.fecha_vencimiento?.slice(0, 10) ?? today);
+  const [metodo, setMetodo]     = useState('Transferencia');
+  const [referencia, setRef]    = useState('');
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <h3 className="text-base font-bold text-gray-900 mb-4">
+          Registrar pago — Cuota #{pago.num_cuota}
+        </h3>
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Monto (Q) *</label>
+            <input type="number" step="0.01" value={monto} onChange={e => setMonto(e.target.value)} required
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de pago *</label>
+            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} max={today}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Método de pago</label>
+            <select value={metodo} onChange={e => setMetodo(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
+              <option>Transferencia</option>
+              <option>Efectivo</option>
+              <option>Depósito</option>
+              <option>Cheque</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Referencia</label>
+            <input type="text" value={referencia} onChange={e => setRef(e.target.value)} placeholder="Opcional"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+          </div>
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button type="button" onClick={onClose} disabled={saving}
+            className="flex-1 border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50">
+            Cancelar
+          </button>
+          <button type="button" disabled={saving || !monto || !fecha}
+            onClick={() => onConfirm(pago, { monto: Number(monto), fecha_pago: fecha, metodo_pago: metodo, referencia })}
+            className="flex-1 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-60">
+            {saving ? 'Guardando...' : 'Confirmar pago'}
+          </button>
         </div>
       </div>
     </div>
@@ -174,11 +290,15 @@ function ClienteModal({
   const [enganche, setEnganche] = useState(String(cliente?.enganche ?? ''));
   const [numCuotas, setNumCuotas] = useState(String(cliente?.num_cuotas ?? ''));
   const [valorCuota, setValorCuota] = useState(String(cliente?.valor_cuota ?? ''));
-  const [fechaDeposito, setFechaDeposito] = useState(cliente?.fecha_deposito ?? today);
+  const [cuotaInicio, setCuotaInicio] = useState(String(cliente?.cuota_inicio ?? 1));
+  const [fechaDeposito, setFechaDeposito] = useState(
+    (cliente?.fecha_deposito ?? today).slice(0, 10)
+  );
   const [metodo, setMetodo] = useState(cliente?.metodo_pago ?? 'Transferencia');
   const [numTransferencia, setNumTransferencia] = useState(cliente?.num_transferencia ?? '');
   const [entidad, setEntidad] = useState<Entidad | ''>(cliente?.entidad_bancaria ?? '');
   const [saving, setSaving] = useState(false);
+  const { showAlert, DialogJSX: ClienteDialogJSX } = useDialog();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -193,6 +313,7 @@ function ClienteModal({
         enganche: Number(enganche),
         num_cuotas: Number(numCuotas),
         valor_cuota: Number(valorCuota),
+        cuota_inicio: Number(cuotaInicio) || 1,
         fecha_deposito: fechaDeposito,
         num_transferencia: numTransferencia || null,
         metodo_pago: metodo || null,
@@ -206,7 +327,7 @@ function ClienteModal({
       onSaved();
       onClose();
     } catch (e: any) {
-      alert(e.message ?? 'Error al guardar');
+      showAlert(e.message ?? 'Error al guardar');
     } finally {
       setSaving(false);
     }
@@ -243,14 +364,14 @@ function ClienteModal({
               <p className="text-xs text-gray-400 mt-1">Recibirá confirmaciones de pago</p>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label>
-              <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="Ej. 5555-1234"
+              <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono *</label>
+              <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="Ej. 5555-1234" required
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Descripción del Lote</label>
-            <input type="text" value={descLote} onChange={e => setDescLote(e.target.value)} placeholder="Ej. Manzana A, Lote 12 — 120m²"
+            <label className="block text-xs font-medium text-gray-600 mb-1">Descripción del Lote *</label>
+            <input type="text" value={descLote} onChange={e => setDescLote(e.target.value)} placeholder="Ej. Manzana A, Lote 12 — 120m²" required
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
 
@@ -282,6 +403,14 @@ function ClienteModal({
             </div>
           </div>
 
+          {/* Cuota inicio */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Cuota de inicio</label>
+            <input type="number" min="1" value={cuotaInicio} onChange={e => setCuotaInicio(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+            <p className="text-xs text-gray-400 mt-1">Si el cliente ya tenía cuotas antes del sistema, indica desde cuál número empieza. Por defecto: 1</p>
+          </div>
+
           {/* Fecha depósito */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de Depósito *</label>
@@ -302,8 +431,8 @@ function ClienteModal({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Entidad Bancaria</label>
-              <select value={entidad} onChange={e => setEntidad(e.target.value as Entidad | '')}
+              <label className="block text-xs font-medium text-gray-600 mb-1">Entidad Bancaria *</label>
+              <select value={entidad} onChange={e => setEntidad(e.target.value as Entidad | '')} required
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
                 <option value="">— Seleccionar —</option>
                 <option>Banrural</option>
@@ -338,6 +467,7 @@ function ClienteModal({
           </div>
         </form>
       </div>
+      {ClienteDialogJSX}
     </div>
   );
 }
@@ -345,18 +475,27 @@ function ClienteModal({
 /* ── Page ───────────────────────────────────────────────────── */
 export default function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [pagosMap, setPagosMap] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [modal, setModal] = useState(false);
   const [editCliente, setEditCliente] = useState<Cliente | null>(null);
   const [detalleCliente, setDetalleCliente] = useState<Cliente | null>(null);
   const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
+  const { showAlert, showConfirm, DialogJSX } = useDialog();
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.clientes.list();
+      const [data, pagos] = await Promise.all([api.clientes.list(), api.pagos.list()]);
       setClientes(data);
+      const map: Record<number, number> = {};
+      for (const p of pagos) {
+        if (p.estado === 'pagado') {
+          map[p.cliente_id] = (map[p.cliente_id] ?? 0) + Number(p.monto);
+        }
+      }
+      setPagosMap(map);
     } catch {
       setClientes([]);
     } finally {
@@ -375,12 +514,12 @@ export default function ClientesPage() {
   function openEdit(c: Cliente) { setEditCliente(c); setModal(true); }
 
   async function handleDelete(id: number) {
-    if (!confirm('¿Eliminar este cliente?')) return;
+    if (!await showConfirm('¿Eliminar este cliente?', { description: 'Se eliminarán también todos sus pagos registrados.', danger: true, confirmLabel: 'Eliminar' })) return;
     try {
       await api.clientes.delete(id);
       load();
     } catch (e: any) {
-      alert(e.message ?? 'Error al eliminar');
+      showAlert(e.message ?? 'Error al eliminar');
     }
   }
 
@@ -427,14 +566,15 @@ export default function ClientesPage() {
                 <th className="text-center px-4 py-3 font-semibold text-gray-600">Cuotas</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-600">Valor/Cuota</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Entidad</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 min-w-[160px]">Avance de pago</th>
                 <th className="text-center px-4 py-3 font-semibold text-gray-600">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-10 text-gray-400">Cargando...</td></tr>
+                <tr><td colSpan={9} className="text-center py-10 text-gray-400">Cargando...</td></tr>
               ) : filtrados.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-10 text-gray-400">
+                <tr><td colSpan={9} className="text-center py-10 text-gray-400">
                   {busqueda ? 'Sin resultados para la búsqueda' : 'No hay clientes registrados'}
                 </td></tr>
               ) : filtrados.map(c => (
@@ -446,6 +586,26 @@ export default function ClientesPage() {
                   <td className="px-4 py-3 text-center text-gray-700">{c.num_cuotas}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-800">{fmt(c.valor_cuota)}</td>
                   <td className="px-4 py-3 text-gray-600">{c.entidad_bancaria ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const cuotasPagadas = pagosMap[c.id] ?? 0;
+                      const totalAbonado  = c.enganche + cuotasPagadas;
+                      const saldo         = Math.max(0, c.precio_neto - totalAbonado);
+                      const pct           = Math.min(100, c.precio_neto > 0 ? (totalAbonado / c.precio_neto) * 100 : 0);
+                      return (
+                        <div className="flex flex-col gap-1 min-w-[150px]">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-green-600 font-medium">{fmt(totalAbonado)}</span>
+                            <span className="text-gray-400">{fmt(c.precio_neto)}</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-green-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                          <p className="text-xs text-red-500 font-medium">Debe: {fmt(saldo)}</p>
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
                       <button onClick={() => setDetalleCliente(c)}
@@ -524,6 +684,25 @@ export default function ClientesPage() {
                 <div><span className="text-gray-400">Cuotas: </span><span className="font-medium text-gray-800">{c.num_cuotas} × {fmt(c.valor_cuota)}</span></div>
                 <div><span className="text-gray-400">Entidad: </span><span className="text-gray-700">{c.entidad_bancaria ?? '—'}</span></div>
               </div>
+              {/* Barra de avance */}
+              {(() => {
+                const cuotasPagadas = pagosMap[c.id] ?? 0;
+                const totalAbonado  = c.enganche + cuotasPagadas;
+                const saldo         = Math.max(0, c.precio_neto - totalAbonado);
+                const pct           = Math.min(100, c.precio_neto > 0 ? (totalAbonado / c.precio_neto) * 100 : 0);
+                return (
+                  <div className="flex flex-col gap-1 mt-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-green-600 font-medium">Pagado: {fmt(totalAbonado)}</span>
+                      <span className="text-red-500 font-medium">Debe: {fmt(saldo)}</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-green-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 text-right">{Math.round(pct)}% completado</p>
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>
@@ -540,8 +719,10 @@ export default function ClientesPage() {
         <DetalleModal
           cliente={detalleCliente}
           onClose={() => setDetalleCliente(null)}
+          onPagoActualizado={load}
         />
       )}
+      {DialogJSX}
     </div>
   );
 }

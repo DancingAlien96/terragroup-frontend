@@ -55,11 +55,12 @@ function calcularMora(cliente: any, pagosCliente: number, today: Date): CarteraI
     }
   }
 
-  const cuotasVencidas = fechasVencidas.length - pagosCliente;
+  const cuotasPrevias = Math.max(0, Number(cliente.cuota_inicio ?? 1) - 1);
+  const cuotasVencidas = fechasVencidas.length - pagosCliente - cuotasPrevias;
   if (cuotasVencidas <= 0) return null;
 
   // Fecha mas antigua sin pagar
-  const oldestUnpaid = fechasVencidas[pagosCliente];
+  const oldestUnpaid = fechasVencidas[pagosCliente + cuotasPrevias];
   const diasMora = Math.floor((today.getTime() - oldestUnpaid.getTime()) / (1000 * 60 * 60 * 24));
 
   let estado_mora: CarteraItem['estado_mora'] = 'temprana';
@@ -98,7 +99,7 @@ export default function CarteraVencidaPage() {
 
       const resultado: CarteraItem[] = [];
       for (const c of clientes) {
-        const pagosCount = pagos.filter((p: any) => p.cliente_id === c.id).length;
+        const pagosCount = pagos.filter((p: any) => p.cliente_id === c.id && p.estado === 'pagado').length;
         const item = calcularMora(c, pagosCount, today);
         if (item) resultado.push(item);
       }

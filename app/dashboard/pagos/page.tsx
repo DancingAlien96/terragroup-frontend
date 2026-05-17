@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 import { isReadOnly } from '@/lib/auth';
+import { useUploadThing } from '@/lib/uploadthing';
+import { useDialog } from '@/lib/useDialog';
 
 /* ── Types ─────────────────────────────────────────────────── */
 interface Cliente {
@@ -27,6 +29,7 @@ interface Pago {
   fecha_pago: string | null;
   metodo_pago: string | null;
   referencia: string | null;
+  comprobante_url: string | null;
   contrato_id: number | null;
   propietario_id: number | null;
 }
@@ -135,6 +138,22 @@ function PagoModal({
   const [monto, setMonto] = useState(String(pago?.monto ?? ''));
   const [metodo, setMetodo] = useState(pago?.metodo_pago ?? 'Transferencia');
   const [referencia, setReferencia] = useState(pago?.referencia ?? '');
+  const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(pago?.comprobante_url ?? null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { showAlert, DialogJSX: PagoDialogJSX } = useDialog();
+
+  const { startUpload } = useUploadThing('comprobantePago', {
+    onUploadBegin: () => setUploading(true),
+    onClientUploadComplete: (res) => {
+      setUploading(false);
+      if (res?.[0]) setComprobanteUrl(res[0].ufsUrl);
+    },
+    onUploadError: () => {
+      setUploading(false);
+      showAlert('Error al subir el archivo');
+    },
+  });
   const [fechaPago, setFechaPago] = useState(
     pago?.fecha_pago ?? new Date().toISOString().split('T')[0]
   );
@@ -169,6 +188,7 @@ function PagoModal({
         fecha_pago: fechaPago,
         metodo_pago: metodo,
         referencia: referencia || null,
+        comprobante_url: comprobanteUrl ?? null,
         estado: 'pagado',
       };
       if (pago) {
@@ -179,7 +199,7 @@ function PagoModal({
       onSaved();
       onClose();
     } catch (err: any) {
-      alert(err.message ?? 'Error al guardar');
+      showAlert(err.message ?? 'Error al guardar');
     } finally {
       setSaving(false);
     }
@@ -255,6 +275,63 @@ function PagoModal({
             </div>
           )}
 
+          {/* Comprobante de pago */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Comprobante de pago</label>
+            {comprobanteUrl ? (
+              <div className="flex items-center gap-2 border border-green-200 bg-green-50 rounded-xl px-3 py-2.5">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-green-600 shrink-0">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-green-700 font-medium underline truncate flex-1">
+                  Ver comprobante
+                </a>
+                <button type="button" onClick={() => setComprobanteUrl(null)}
+                  className="text-gray-400 hover:text-red-500 text-xs shrink-0">✕</button>
+              </div>
+            ) : (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) await startUpload([file]);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 hover:border-[#d4a843] hover:bg-amber-50 text-gray-500 hover:text-[#b8922e] rounded-xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-60"
+                >
+                  {uploading ? (
+                    <>
+                      <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                      </svg>
+                      Subiendo...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                      Subir imagen o PDF
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-gray-400 mt-1">Imagen o PDF · máx. 8 MB</p>
+              </>
+            )}
+          </div>
+
           <div className="flex gap-3 mt-2">
             <button type="button" onClick={onClose} disabled={saving}
               className="flex-1 border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50">
@@ -267,6 +344,7 @@ function PagoModal({
           </div>
         </form>
       </div>
+      {PagoDialogJSX}
     </div>
   );
 }
@@ -279,6 +357,7 @@ export default function GestionPagosPage() {
   const [busqueda, setBusqueda] = useState('');
   const [modal, setModal] = useState(false);
   const [editPago, setEditPago] = useState<Pago | null>(null);
+  const { showAlert, showConfirm, DialogJSX } = useDialog();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -290,9 +369,9 @@ export default function GestionPagosPage() {
   useEffect(() => { load(); }, [load]);
 
   async function handleDelete(id: number) {
-    if (!confirm('¿Eliminar este pago?')) return;
+    if (!await showConfirm('¿Eliminar este pago?', { description: 'Esta acción no se puede deshacer.', danger: true, confirmLabel: 'Eliminar' })) return;
     try { await api.pagos.delete(id); await load(); }
-    catch (err: any) { alert(err.message ?? 'Error'); }
+    catch (err: any) { showAlert(err.message ?? 'Error'); }
   }
 
   const pagosFiltrados = pagos.filter((p) => {
@@ -466,6 +545,7 @@ export default function GestionPagosPage() {
           </div>
         </div>
       </div>
+      {DialogJSX}
     </>
   );
 }

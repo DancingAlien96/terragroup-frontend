@@ -1,180 +1,340 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { FileText, X, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { FileText, Upload, Trash2, ExternalLink, FolderOpen, Search, X } from 'lucide-react';
 import { api } from '@/lib/api';
+import { isReadOnly } from '@/lib/auth';
+import { useUploadThing } from '@/lib/uploadthing';
+import { useDialog } from '@/lib/useDialog';
 
+/* â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 interface Cliente {
   id: number;
-  propietario_nombre: string;
-  propietario_telefono: string | null;
-  propietario_email: string | null;
-  propietario_estado_cuenta: string;
-  lote_clave: string;
-  precio_total: number;
-  total_pagado: number;
-  total_pendiente: number;
-  fecha_inicio: string;
-  estado: string;
+  nombre_comprador: string;
+  descripcion_lote: string | null;
 }
 
-const ESTADO_STYLES: Record<string, string> = {
-  'al_dia':    'bg-green-50 text-green-600 border border-green-200',
-  'moroso':    'bg-[#fdf3d9] text-[#92700a] border border-[#d4a843]/30',
-  'vencido':   'bg-red-50 text-red-600 border border-red-200',
-  'liquidado': 'bg-gray-100 text-gray-500 border border-gray-200',
-  'activo':    'bg-blue-50 text-blue-600 border border-blue-200',
-  'cancelado': 'bg-red-50 text-red-600 border border-red-200',
-};
-
-const ESTADO_LABEL: Record<string, string> = {
-  al_dia: 'Al día', moroso: 'Moroso', vencido: 'Vencido',
-  liquidado: 'Liquidado', activo: 'Activo', cancelado: 'Cancelado',
-};
-
-function fmt(n: number) { return '$' + n.toLocaleString('es-MX'); }
-function pct(pagado: number, total: number) {
-  if (!total) return 0;
-  return Math.min(100, Math.round((pagado / total) * 100));
+interface Expediente {
+  id: number;
+  cliente_id: number;
+  nombre: string;
+  archivo_url: string;
+  created_at: string;
 }
 
+function fmtDate(d: string) {
+  return new Date(d).toLocaleDateString('es-GT', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+}
+
+/* â”€â”€ UploadPanel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function UploadPanel({ clienteId, onUploaded }: { clienteId: number; onUploaded: () => void }) {
+  const readOnly = isReadOnly();
+  const [nombre, setNombre]       = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [fileReady, setFileReady] = useState<File | null>(null);
+  const fileInputRef              = useRef<HTMLInputElement>(null);
+  const { showAlert, DialogJSX }  = useDialog();
+
+  const { startUpload } = useUploadThing('expedienteDoc', {
+    onUploadBegin: () => setUploading(true),
+    onClientUploadComplete: async (res) => {
+      setUploading(false);
+      if (!res?.[0]) return;
+      setSaving(true);
+      try {
+        await api.expedientes.create({
+          cliente_id:  clienteId,
+          nombre:      nombre.trim() || (fileReady?.name ?? 'Documento'),
+          archivo_url: res[0].ufsUrl,
+        });
+        setNombre('');
+        setFileReady(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        onUploaded();
+      } catch (e: any) {
+        showAlert(e.message ?? 'Error al guardar el expediente');
+      } finally {
+        setSaving(false);
+      }
+    },
+    onUploadError: () => {
+      setUploading(false);
+      showAlert('Error al subir el archivo. Verifica que sea PDF y menor a 16 MB.');
+    },
+  });
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setFileReady(file);
+    if (file && !nombre) setNombre(file.name.replace(/\.pdf$/i, ''));
+  }
+
+  async function handleUpload() {
+    if (!fileReady || uploading || saving) return;
+    await startUpload([fileReady]);
+  }
+
+  if (readOnly) return null;
+
+  const busy = uploading || saving;
+
+  return (
+    <div className="border border-dashed border-[#d4a843]/60 rounded-2xl bg-amber-50/30 p-4">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Subir documento</p>
+      <div className="flex flex-col gap-3">
+        <input
+          type="text"
+          value={nombre}
+          onChange={e => setNombre(e.target.value)}
+          placeholder="Nombre del documento (ej. Contrato de compraventa)"
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]"
+        />
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              onChange={handleFileChange}
+              className="hidden"
+              id="exp-file-input"
+            />
+            <label
+              htmlFor="exp-file-input"
+              className="flex items-center gap-2 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-500 cursor-pointer hover:border-[#d4a843] hover:bg-amber-50 transition-colors"
+            >
+              <FileText size={14} className="shrink-0 text-gray-400" />
+              <span className="truncate">{fileReady ? fileReady.name : 'Seleccionar PDF...'}</span>
+            </label>
+          </div>
+          <button
+            type="button"
+            onClick={handleUpload}
+            disabled={!fileReady || busy}
+            className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50 shrink-0"
+          >
+            {busy ? (
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+            ) : (
+              <Upload size={14} />
+            )}
+            {busy ? 'Subiendo...' : 'Subir'}
+          </button>
+        </div>
+      </div>
+      {DialogJSX}
+    </div>
+  );
+}
+
+/* â”€â”€ DocCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function DocCard({ doc, onDelete, readOnly }: { doc: Expediente; onDelete: (id: number) => void; readOnly: boolean }) {
+  return (
+    <div className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-3 hover:border-gray-200 hover:shadow-sm transition-all group">
+      <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+        <FileText size={18} className="text-red-500" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-900 truncate">{doc.nombre}</p>
+        <p className="text-xs text-gray-400 mt-0.5">{fmtDate(doc.created_at)}</p>
+      </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <a
+          href={doc.archivo_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+          title="Ver PDF"
+        >
+          <ExternalLink size={14} />
+        </a>
+        {!readOnly && (
+          <button
+            onClick={() => onDelete(doc.id)}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+            title="Eliminar"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 export default function ExpedientesPage() {
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busqueda, setBusqueda] = useState('');
-  const [seleccionado, setSeleccionado] = useState<Cliente | null>(null);
+  const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
+  const { showConfirm, showAlert, DialogJSX } = useDialog();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setClientes(await api.contratos.list()); }
-    catch { /* silencioso */ }
-    finally { setLoading(false); }
+  const [clientes, setClientes]               = useState<Cliente[]>([]);
+  const [busqueda, setBusqueda]               = useState('');
+  const [clienteSel, setClienteSel]           = useState<Cliente | null>(null);
+  const [docs, setDocs]                       = useState<Expediente[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(true);
+  const [loadingDocs, setLoadingDocs]         = useState(false);
+
+  useEffect(() => {
+    api.clientes.list()
+      .then((data: any[]) => setClientes(data))
+      .catch(() => {})
+      .finally(() => setLoadingClientes(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const cargarDocs = useCallback(async (clienteId: number) => {
+    setLoadingDocs(true);
+    try {
+      const data = await api.expedientes.list(clienteId);
+      setDocs(data);
+    } catch { setDocs([]); }
+    finally { setLoadingDocs(false); }
+  }, []);
 
-  const filtrados = clientes.filter(c =>
-    (c.propietario_nombre ?? '').toLowerCase().includes(busqueda.toLowerCase()) ||
-    (c.lote_clave ?? '').toLowerCase().includes(busqueda.toLowerCase())
+  useEffect(() => {
+    if (clienteSel) cargarDocs(clienteSel.id);
+    else setDocs([]);
+  }, [clienteSel, cargarDocs]);
+
+  async function handleDelete(id: number) {
+    if (!await showConfirm('Â¿Eliminar este documento?', {
+      description: 'El archivo serÃ¡ eliminado del expediente. Esta acciÃ³n no se puede deshacer.',
+      danger: true,
+      confirmLabel: 'Eliminar',
+    })) return;
+    try {
+      await api.expedientes.delete(id);
+      if (clienteSel) cargarDocs(clienteSel.id);
+    } catch (e: any) {
+      showAlert(e.message ?? 'Error al eliminar');
+    }
+  }
+
+  const clientesFiltrados = clientes.filter(c =>
+    c.nombre_comprador.toLowerCase().includes(busqueda.toLowerCase()) ||
+    (c.descripcion_lote ?? '').toLowerCase().includes(busqueda.toLowerCase()),
   );
 
   return (
-    <div className="p-6 bg-[#f9fafb] min-h-full">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#1a1a1a]">Expediente de Clientes</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Historial completo y documentos por propietario</p>
+    <div className="flex flex-col gap-0">
+      <div className="mb-5">
+        <h1 className="text-xl font-bold text-gray-900">Expedientes de clientes</h1>
+        <p className="text-sm text-gray-500 mt-0.5">DocumentaciÃ³n legal por cliente</p>
       </div>
 
-      <div className="flex gap-5">
-        {/* Lista */}
-        <div className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col ${seleccionado ? 'w-80 shrink-0' : 'flex-1'}`}>
-          <div className="px-4 py-3 border-b border-gray-100">
+      <div className="flex gap-4" style={{ height: 'calc(100vh - 180px)' }}>
+        {/* â”€â”€ Panel izquierdo: lista de clientes â”€â”€ */}
+        <div className="w-72 shrink-0 flex flex-col bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-3 pt-3 pb-2 border-b border-gray-50">
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar cliente o lote..."
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#d4a843] focus:border-transparent"
+                placeholder="Buscar cliente..."
+                className="w-full pl-8 pr-8 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#d4a843]"
               />
+              {busqueda && (
+                <button onClick={() => setBusqueda('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+                  <X size={13} />
+                </button>
+              )}
             </div>
           </div>
-          <div className="divide-y divide-gray-100">
-            {loading ? (
-              <p className="px-4 py-8 text-center text-sm text-gray-400">Cargando expedientes...</p>
-            ) : filtrados.map(c => (
+
+          <div className="flex-1 overflow-y-auto">
+            {loadingClientes ? (
+              <p className="text-xs text-gray-400 text-center py-8">Cargando...</p>
+            ) : clientesFiltrados.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-8">
+                {busqueda ? 'Sin resultados' : 'No hay clientes'}
+              </p>
+            ) : clientesFiltrados.map(c => (
               <button
                 key={c.id}
-                onClick={() => setSeleccionado(c)}
-                className={`w-full text-left px-4 py-3.5 hover:bg-gray-50 transition-colors flex items-center justify-between ${seleccionado?.id === c.id ? 'bg-[#fdf3d9]' : ''}`}
+                onClick={() => setClienteSel(c)}
+                className={`w-full text-left px-3 py-2.5 border-b border-gray-50 last:border-0 transition-colors ${
+                  clienteSel?.id === c.id
+                    ? 'bg-amber-50 border-l-2 border-l-[#d4a843]'
+                    : 'hover:bg-gray-50'
+                }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#1a1a1a] text-[#d4a843] flex items-center justify-center text-xs font-bold shrink-0">
-                    {(c.propietario_nombre ?? '').split(' ').slice(0, 2).map(n => n[0]).join('')}
-                  </div>
-                  <div>
-                    <p className={`text-sm font-medium ${seleccionado?.id === c.id ? 'text-[#92700a]' : 'text-[#1a1a1a]'}`}>{c.propietario_nombre}</p>
-                    <p className="text-xs text-gray-400">Lote {c.lote_clave} · {ESTADO_LABEL[c.propietario_estado_cuenta] ?? c.propietario_estado_cuenta}</p>
-                  </div>
-                </div>
-                <ChevronRight size={14} className="text-gray-400 shrink-0" />
+                <p className={`text-sm font-medium truncate ${clienteSel?.id === c.id ? 'text-[#b8922e]' : 'text-gray-900'}`}>
+                  {c.nombre_comprador}
+                </p>
+                {c.descripcion_lote && (
+                  <p className="text-xs text-gray-400 truncate mt-0.5">{c.descripcion_lote}</p>
+                )}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Detalle */}
-        {seleccionado && (
-          <div className="flex-1 flex flex-col gap-4">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full bg-[#1a1a1a] text-[#d4a843] flex items-center justify-center text-lg font-bold">
-                    {(seleccionado.propietario_nombre ?? '').split(' ').slice(0, 2).map(n => n[0]).join('')}
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-[#1a1a1a]">{seleccionado.propietario_nombre}</h2>
-                    <p className="text-sm text-gray-500">Contrato #{seleccionado.id}</p>
-                    <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${ESTADO_STYLES[seleccionado.propietario_estado_cuenta] ?? 'bg-gray-100 text-gray-500'}`}>
-                      {ESTADO_LABEL[seleccionado.propietario_estado_cuenta] ?? seleccionado.propietario_estado_cuenta}
-                    </span>
-                  </div>
-                </div>
-                <button onClick={() => setSeleccionado(null)} className="text-gray-400 hover:text-gray-600 p-1">
-                  <X size={18} />
-                </button>
+        {/* â”€â”€ Panel derecho: documentos â”€â”€ */}
+        <div className="flex-1 flex flex-col bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+          {!clienteSel ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 p-8">
+              <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center">
+                <FolderOpen size={28} className="text-gray-300" />
               </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                <div><p className="text-xs text-gray-400 uppercase tracking-wide">Teléfono</p><p className="font-medium text-[#1a1a1a]">{seleccionado.propietario_telefono ?? '—'}</p></div>
-                <div><p className="text-xs text-gray-400 uppercase tracking-wide">Email</p><p className="font-medium text-[#1a1a1a]">{seleccionado.propietario_email ?? '—'}</p></div>
-                <div><p className="text-xs text-gray-400 uppercase tracking-wide">Lote</p><p className="font-medium text-[#1a1a1a]">{seleccionado.lote_clave}</p></div>
-                <div><p className="text-xs text-gray-400 uppercase tracking-wide">Fecha Contrato</p><p className="font-medium text-[#1a1a1a]">{seleccionado.fecha_inicio}</p></div>
-              </div>
-
-              {/* Barra de progreso de pago */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex justify-between text-xs text-gray-500 mb-2">
-                  <span>Pagado: <span className="font-semibold text-green-600">{fmt(Number(seleccionado.total_pagado))}</span></span>
-                  <span>Pendiente: <span className="font-semibold text-red-500">{Number(seleccionado.total_pendiente) > 0 ? fmt(Number(seleccionado.total_pendiente)) : '—'}</span></span>
-                  <span>Total: <span className="font-semibold text-[#1a1a1a]">{fmt(Number(seleccionado.precio_total))}</span></span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div
-                    className="bg-[#d4a843] h-2.5 rounded-full transition-all"
-                    style={{ width: `${pct(Number(seleccionado.total_pagado), Number(seleccionado.precio_total))}%` }}
-                  />
-                </div>
-                <p className="text-right text-xs text-gray-400 mt-1">{pct(Number(seleccionado.total_pagado), Number(seleccionado.precio_total))}% completado</p>
+              <div>
+                <p className="text-sm font-semibold text-gray-400">Selecciona un cliente</p>
+                <p className="text-xs text-gray-300 mt-1">para ver o subir su documentaciÃ³n</p>
               </div>
             </div>
-
-            {/* Documentos (placeholder) */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <h3 className="text-sm font-semibold text-[#1a1a1a] mb-3">Documentos del expediente</h3>
-              <div className="flex flex-col gap-2">
-                {['DPI copia', 'Contrato firmado', 'Comprobante enganche'].map(doc => (
-                  <div key={doc} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-100 hover:border-[#d4a843]/40 hover:bg-[#fdf3d9]/40 transition-colors">
-                    <FileText size={16} className="text-[#d4a843] shrink-0" />
-                    <span className="text-sm text-gray-700 flex-1">{doc}</span>
-                    <span className="text-xs text-green-500 font-medium">Cargado</span>
-                  </div>
-                ))}
+          ) : (
+            <>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">{clienteSel.nombre_comprador}</h2>
+                  {clienteSel.descripcion_lote && (
+                    <p className="text-xs text-gray-400 mt-0.5">{clienteSel.descripcion_lote}</p>
+                  )}
+                </div>
+                <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full font-medium">
+                  {docs.length} {docs.length === 1 ? 'documento' : 'documentos'}
+                </span>
               </div>
-            </div>
-          </div>
-        )}
 
-        {!seleccionado && (
-          <div className="flex-1 bg-white rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-sm">
-            Selecciona un cliente para ver su expediente
-          </div>
-        )}
+              <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+                <UploadPanel
+                  clienteId={clienteSel.id}
+                  onUploaded={() => cargarDocs(clienteSel.id)}
+                />
+
+                {loadingDocs ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Cargando documentos...</p>
+                ) : docs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                    <FileText size={32} className="text-gray-200" />
+                    <p className="text-sm text-gray-400">Este cliente no tiene documentos aÃºn</p>
+                    <p className="text-xs text-gray-300">Sube el primer PDF usando el panel de arriba</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {docs.map(doc => (
+                      <DocCard
+                        key={doc.id}
+                        doc={doc}
+                        onDelete={handleDelete}
+                        readOnly={readOnly}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
+
+      {DialogJSX}
     </div>
   );
 }
