@@ -20,55 +20,40 @@ async function request<T>(
   return json.data ?? json;
 }
 
-// ── Usuarios ────────────────────────────────────────────────
+// ── CRUD genérico para reusar ──────────────────────────────
+function crud(base: string) {
+  return {
+    list:   () => request<any[]>(base),
+    get:    (id: number) => request<any>(`${base}/${id}`),
+    create: (body: unknown) => request<any>(base, { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: number, body: unknown) => request<any>(`${base}/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (id: number) => request<any>(`${base}/${id}`, { method: 'DELETE' }),
+  };
+}
+
+// ── API ────────────────────────────────────────────────────
+// Nota arquitectónica: el backend usa `ventas` (modelo normalizado).
+// Mantenemos `api.clientes` como alias para no romper páginas que
+// conceptualmente hablan de "clientes" (en UX el comprador = cliente).
+const ventas = crud('/api/ventas');
+
 export const api = {
-  usuarios: {
-    list: () => request<any[]>('/api/usuarios'),
-    get:  (id: number) => request<any>(`/api/usuarios/${id}`),
-    create: (body: unknown) => request<any>('/api/usuarios', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: number, body: unknown) => request<any>(`/api/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-    delete: (id: number) => request<any>(`/api/usuarios/${id}`, { method: 'DELETE' }),
-  },
+  usuarios:      crud('/api/usuarios'),
+  lotes:         crud('/api/lotes'),
+  propietarios:  crud('/api/propietarios'),
+  pagos:         crud('/api/pagos'),
 
-  lotes: {
-    list: () => request<any[]>('/api/lotes'),
-    get:  (id: number) => request<any>(`/api/lotes/${id}`),
-    create: (body: unknown) => request<any>('/api/lotes', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: number, body: unknown) => request<any>(`/api/lotes/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-    delete: (id: number) => request<any>(`/api/lotes/${id}`, { method: 'DELETE' }),
-  },
-
-  propietarios: {
-    list: () => request<any[]>('/api/propietarios'),
-    get:  (id: number) => request<any>(`/api/propietarios/${id}`),
-    create: (body: unknown) => request<any>('/api/propietarios', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: number, body: unknown) => request<any>(`/api/propietarios/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-    delete: (id: number) => request<any>(`/api/propietarios/${id}`, { method: 'DELETE' }),
-  },
-
-  contratos: {
-    list: () => request<any[]>('/api/contratos'),
-    get:  (id: number) => request<any>(`/api/contratos/${id}`),
-    create: (body: unknown) => request<any>('/api/contratos', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: number, body: unknown) => request<any>(`/api/contratos/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-    delete: (id: number) => request<any>(`/api/contratos/${id}`, { method: 'DELETE' }),
-  },
-
-  pagos: {
-    list: () => request<any[]>('/api/pagos'),
-    get:  (id: number) => request<any>(`/api/pagos/${id}`),
-    create: (body: unknown) => request<any>('/api/pagos', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: number, body: unknown) => request<any>(`/api/pagos/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-    delete: (id: number) => request<any>(`/api/pagos/${id}`, { method: 'DELETE' }),
-  },
+  // Ventas = clientes (alias). Misma fuente, dos nombres.
+  ventas,
+  clientes: ventas,
 
   vendedores: {
-    list: () => request<any[]>('/api/vendedores'),
+    list:   () => request<any[]>('/api/vendedores'),
     create: (body: unknown) => request<any>('/api/vendedores', { method: 'POST', body: JSON.stringify(body) }),
     update: (id: number, body: unknown) => request<any>(`/api/vendedores/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
     delete: (id: number) => request<void>(`/api/vendedores/${id}`, { method: 'DELETE' }),
     comisiones: {
-      list: (vendedorId: number) => request<any[]>(`/api/vendedores/${vendedorId}/comisiones`),
+      list:   (vendedorId: number) => request<any[]>(`/api/vendedores/${vendedorId}/comisiones`),
       create: (vendedorId: number, body: unknown) => request<any>(`/api/vendedores/${vendedorId}/comisiones`, { method: 'POST', body: JSON.stringify(body) }),
       update: (vendedorId: number, comisionId: number, body: unknown) => request<any>(`/api/vendedores/${vendedorId}/comisiones/${comisionId}`, { method: 'PUT', body: JSON.stringify(body) }),
       delete: (vendedorId: number, comisionId: number) => request<void>(`/api/vendedores/${vendedorId}/comisiones/${comisionId}`, { method: 'DELETE' }),
@@ -76,9 +61,9 @@ export const api = {
   },
 
   notificaciones: {
-    list: () => request<any[]>('/api/notificaciones'),
+    list:   () => request<any[]>('/api/notificaciones'),
     create: (body: unknown) => request<any>('/api/notificaciones', { method: 'POST', body: JSON.stringify(body) }),
-    leer: (id: number) => request<any>(`/api/notificaciones/${id}/leer`, { method: 'PATCH' }),
+    leer:   (id: number) => request<any>(`/api/notificaciones/${id}/leer`, { method: 'PATCH' }),
     delete: (id: number) => request<any>(`/api/notificaciones/${id}`, { method: 'DELETE' }),
   },
 
@@ -86,28 +71,22 @@ export const api = {
     list: () => request<any[]>('/api/cartera'),
   },
 
-  clientes: {
-    list: () => request<any[]>('/api/clientes'),
-    get:  (id: number) => request<any>(`/api/clientes/${id}`),
-    create: (body: unknown) => request<any>('/api/clientes', { method: 'POST', body: JSON.stringify(body) }),
-    update: (id: number, body: unknown) => request<any>(`/api/clientes/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-    delete: (id: number) => request<any>(`/api/clientes/${id}`, { method: 'DELETE' }),
-  },
-
+  // Expedientes: el backend ahora usa venta_id (mismo concepto).
+  // Mantenemos `cliente_id` en el query para compat — el backend acepta ambos.
   expedientes: {
-    list: (clienteId: number) => request<any[]>(`/api/expedientes?cliente_id=${clienteId}`),
+    list:   (ventaId: number) => request<any[]>(`/api/expedientes?venta_id=${ventaId}`),
     create: (body: unknown) => request<any>('/api/expedientes', { method: 'POST', body: JSON.stringify(body) }),
     delete: (id: number) => request<any>(`/api/expedientes/${id}`, { method: 'DELETE' }),
   },
 
   empresas: {
-    register: (body: unknown) => request<any>('/api/empresas/register', { method: 'POST', body: JSON.stringify(body) }),
-    list: () => request<any[]>('/api/empresas'),
-    stats: () => request<any>('/api/empresas/stats'),
-    get: (id: number) => request<any>(`/api/empresas/${id}`),
-    update: (id: number, body: unknown) => request<any>(`/api/empresas/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-    toggle: (id: number) => request<any>(`/api/empresas/${id}/toggle`, { method: 'PATCH' }),
-    changePlan: (id: number, plan_id: number) => request<any>(`/api/empresas/${id}/plan`, { method: 'PATCH', body: JSON.stringify({ plan_id }) }),
+    register:    (body: unknown) => request<any>('/api/empresas/register', { method: 'POST', body: JSON.stringify(body) }),
+    list:        () => request<any[]>('/api/empresas'),
+    stats:       () => request<any>('/api/empresas/stats'),
+    get:         (id: number) => request<any>(`/api/empresas/${id}`),
+    update:      (id: number, body: unknown) => request<any>(`/api/empresas/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    toggle:      (id: number) => request<any>(`/api/empresas/${id}/toggle`, { method: 'PATCH' }),
+    changePlan:  (id: number, plan_id: number) => request<any>(`/api/empresas/${id}/plan`, { method: 'PATCH', body: JSON.stringify({ plan_id }) }),
   },
 
   planes: {
@@ -115,7 +94,8 @@ export const api = {
   },
 
   stats: {
-    dashboard: () => request<any>('/api/stats/dashboard'),
-    reportes:  () => request<any>('/api/stats/reportes'),
+    dashboard:        () => request<any>('/api/stats/dashboard'),
+    reportes:         () => request<any>('/api/stats/reportes'),
+    resumenEjecutivo: () => request<any>('/api/stats/resumen-ejecutivo'),
   },
 };

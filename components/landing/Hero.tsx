@@ -14,21 +14,21 @@ export default function Hero() {
       <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/55 to-black/20" />
 
       {/* Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-24 w-full">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-24 sm:pt-32 pb-16 sm:pb-24 w-full">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold px-4 py-2 rounded-full mb-6">
+        <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold px-3 sm:px-4 py-2 rounded-full mb-6">
           <span className="w-1.5 h-1.5 rounded-full bg-[#d4a843] animate-pulse" />
           El SaaS #1 para lotificaciones en Latinoamérica
         </div>
 
         {/* Heading */}
-        <h1 className="text-5xl md:text-6xl font-extrabold text-white leading-tight max-w-2xl mb-4">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white leading-tight max-w-2xl mb-4">
           Gestiona tu lotificación{' '}
           <span className="text-[#f5c842]">sin complicaciones</span>
         </h1>
 
         {/* Subtitle */}
-        <p className="text-white/75 text-lg max-w-lg leading-relaxed mb-10">
+        <p className="text-white/75 text-base sm:text-lg max-w-lg leading-relaxed mb-10">
           Controla pagos, automatiza cobranzas, genera reportes financieros y
           mantén a tus propietarios informados. Todo en una sola plataforma
           diseñada para desarrolladores de lotificaciones.

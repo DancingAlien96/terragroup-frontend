@@ -179,24 +179,26 @@ export default function DashboardPage() {
           {loading ? <div className="py-8 text-center text-gray-400 text-sm">Cargando...</div>
           : activity.length === 0 ? <div className="py-8 text-center text-gray-400 text-sm">Sin movimientos registrados</div>
           : (
-            <table className="w-full text-sm">
-              <thead><tr className="text-xs text-gray-400 border-b border-gray-100">
-                <th className="pb-2 text-left font-medium">Propietario</th>
-                <th className="pb-2 text-left font-medium">Lote</th>
-                <th className="pb-2 text-right font-medium">Monto</th>
-                <th className="pb-2 text-right font-medium">Estado</th>
-              </tr></thead>
-              <tbody>
-                {activity.map((row: any, i: number) => (
-                  <tr key={i} className="border-b border-gray-50 last:border-0">
-                    <td className="py-2.5 font-medium text-gray-900 truncate max-w-[120px]">{row.propietario}</td>
-                    <td className="py-2.5 text-gray-500">{row.lote}</td>
-                    <td className="py-2.5 text-right font-semibold text-gray-900">{fmt(Number(row.monto))}</td>
-                    <td className="py-2.5 text-right"><EstadoBadge estado={row.estado} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto -mx-2 sm:mx-0">
+              <table className="w-full text-sm min-w-[420px]">
+                <thead><tr className="text-xs text-gray-400 border-b border-gray-100">
+                  <th className="pb-2 text-left font-medium">Propietario</th>
+                  <th className="pb-2 text-left font-medium">Lote</th>
+                  <th className="pb-2 text-right font-medium">Monto</th>
+                  <th className="pb-2 text-right font-medium">Estado</th>
+                </tr></thead>
+                <tbody>
+                  {activity.map((row: any, i: number) => (
+                    <tr key={i} className="border-b border-gray-50 last:border-0">
+                      <td className="py-2.5 font-medium text-gray-900 truncate max-w-[120px]">{row.propietario}</td>
+                      <td className="py-2.5 text-gray-500">{row.lote}</td>
+                      <td className="py-2.5 text-right font-semibold text-gray-900">{fmt(Number(row.monto))}</td>
+                      <td className="py-2.5 text-right"><EstadoBadge estado={row.estado} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

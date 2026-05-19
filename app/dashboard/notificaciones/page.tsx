@@ -78,16 +78,16 @@ export default function NotificacionesPage() {
   };
 
   return (
-    <div className="p-6 bg-[#f9fafb] min-h-full">
+    <div className="p-4 sm:p-6 bg-[#f9fafb] min-h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#1a1a1a]">Notificaciones</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#1a1a1a]">Notificaciones</h1>
           <p className="text-sm text-gray-500 mt-0.5">Gestiona el envío de notificaciones a usuarios</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold px-4 py-2.5 rounded-lg transition-colors text-sm"
+          className="flex items-center justify-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold px-4 py-2.5 rounded-lg transition-colors text-sm w-full sm:w-auto"
         >
           <Send size={15} />
           Nueva Notificación
@@ -95,7 +95,7 @@ export default function NotificacionesPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex items-center gap-4">
           <div className="w-10 h-10 rounded-full bg-[#fdf3d9] flex items-center justify-center">
             <Send size={18} className="text-[#d4a843]" />

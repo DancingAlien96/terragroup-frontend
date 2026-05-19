@@ -13,7 +13,7 @@ export default function Footer() {
               <span className="font-bold text-xl"><span className="text-white">Terra</span><span className="text-[#d4a843]">Group</span></span>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
-              Conectamos tu proyecto con eficiencia. La plataforma #1 para gestiÃ³n de cobranza en empresas de lotificaciÃ³n.
+              Conectamos tu proyecto con eficiencia. La plataforma #1 para gestión de cobranza en empresas de lotificación.
             </p>
           </div>
 
@@ -34,14 +34,14 @@ export default function Footer() {
               <li><a href="#" className="hover:text-white transition-colors">Centro de ayuda</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Contacto</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Privacidad</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">TÃ©rminos de uso</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Términos de uso</a></li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-gray-500 text-xs">
-            Â© {new Date().getFullYear()} TerraGroup. Todos los derechos reservados.
+            © {new Date().getFullYear()} TerraGroup. Todos los derechos reservados.
           </p>
           <p className="text-gray-500 text-xs">Conectamos tu proyecto con eficiencia.</p>
         </div>

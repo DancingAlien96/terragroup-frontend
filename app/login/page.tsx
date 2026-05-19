@@ -81,7 +81,7 @@ export default function LoginPage() {
             </span>
           </div>
 
-          <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Bienvenido</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-2">Bienvenido</h1>
           <p className="text-gray-500 text-sm mb-8">
             Ingresa tus credenciales para acceder al sistema.
           </p>

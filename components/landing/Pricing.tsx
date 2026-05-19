@@ -1,141 +1,160 @@
 import Link from 'next/link';
+import { MessageSquare, Settings, GraduationCap, Rocket, Mail, ArrowRight } from 'lucide-react';
 
-const PLANS = [
+const PASOS = [
   {
-    name: 'Básico',
-    price: '$45',
-    period: '/ mensual',
-    description: 'Para empresas que están comenzando su digitalización.',
-    maxLotes: 'Hasta 150 lotes',
-    maxUsers: '1 usuario administrativo',
-    features: [
-      'Registro de clientes y lotes',
-      'Control de pagos (manual asistido)',
-      'Historial de pagos por cliente',
-      'Estado de cuenta básico',
-      'Reporte mensual de ingresos',
-      'Dashboard básico',
-      'Recordatorios manuales',
-      'Envío de recibo interno',
-    ],
-    highlight: false,
-    cta: 'Comenzar gratis',
+    n: '01',
+    icon: MessageSquare,
+    title: 'Solicita tu demo gratuita',
+    desc: 'Contáctanos por correo o WhatsApp y agendamos una llamada para entender las necesidades de tu lotificación.',
   },
   {
-    name: 'Profesional',
-    price: '$90',
-    period: '/ mensual',
-    description: 'El plan más popular para empresas en crecimiento.',
-    maxLotes: '151 hasta 300 lotes',
-    maxUsers: '3 usuarios administrativos',
-    features: [
-      'Todo lo del plan Básico',
-      'Control de mora automatizado',
-      'Clasificación de cartera',
-      'Reportes mensuales y trimestrales',
-      'Estados de cuenta automatizados',
-      'Dashboard avanzado',
-      'Exportación de reportes (PDF)',
-      'Notificaciones automáticas (WhatsApp y Email)',
-    ],
-    highlight: true,
-    cta: 'Empezar ahora',
+    n: '02',
+    icon: Settings,
+    title: 'Configuramos tu sistema',
+    desc: 'En menos de 24 horas tu instancia personalizada queda lista, con tus lotes, vendedores y datos iniciales cargados.',
   },
   {
-    name: 'Empresarial',
-    price: '$150',
-    period: '/ mensual',
-    description: 'Para grandes empresas con operaciones complejas.',
-    maxLotes: '301 hasta 1,000 lotes',
-    maxUsers: '5 usuarios administrativos',
-    features: [
-      'Todo lo del plan Profesional',
-      'Expediente digital del cliente',
-      'Control de usuarios y roles',
-      'Supervisión operativa del equipo',
-      'Reportes administrativos completos',
-      'Notificaciones WhatsApp opcional',
-      'Soporte prioritario',
-      'Configuración personalizada',
-    ],
-    highlight: false,
-    cta: 'Contactar ventas',
+    n: '03',
+    icon: GraduationCap,
+    title: 'Capacitamos a tu equipo',
+    desc: 'Sesión de capacitación online incluida. Tu equipo aprende a usar todas las funciones del sistema desde el primer día.',
   },
+  {
+    n: '04',
+    icon: Rocket,
+    title: 'Listo, a operar',
+    desc: 'Soporte continuo, actualizaciones y respaldos automáticos. Tú te enfocas en vender; nosotros del resto.',
+  },
+];
+
+const BENEFITS = [
+  'Mayor control de tu cartera',
+  'Ahorro de tiempo y recursos',
+  'Decisiones basadas en información real',
+  'Seguridad y respaldo de tu información',
+  'Soporte técnico confiable',
 ];
 
 export default function Pricing() {
   return (
-    <section id="precios" className="bg-[#f9fafb] py-24 px-6">
+    <section id="precios" className="bg-[#f9fafb] py-16 sm:py-24 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <span className="text-[#d4a843] text-sm font-semibold uppercase tracking-widest">Precios</span>
-          <h2 className="text-4xl font-extrabold text-gray-900 mt-2 mb-4">
-            Planes para cada tamaño de empresa
+        {/* ── Header ─────────────────────────────────────────── */}
+        <div className="text-center mb-12 sm:mb-16">
+          <span className="text-[#d4a843] text-sm font-semibold uppercase tracking-widest">Cómo empezar</span>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mt-2 mb-4">
+            Tu sistema administrador en 4 pasos
           </h2>
           <p className="text-gray-500 max-w-xl mx-auto text-base">
-            Sin costos ocultos. Elige el plan que se adapta a tu cartera de lotes.
+            Implementamos TerraGroup llave en mano. Sin contratos largos, sin sorpresas — un proceso simple para que empieces a operar rápido.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.name}
-              className={`rounded-2xl p-8 flex flex-col gap-5 border transition-shadow hover:shadow-lg ${
-                plan.highlight
-                  ? 'bg-[#1a1a1a] border-[#d4a843]/60 text-white shadow-xl scale-105'
-                  : 'bg-white border-gray-200 text-gray-900'
-              }`}
-            >
-              <div>
-                <h3 className={`text-xs font-bold uppercase tracking-widest mb-1 ${plan.highlight ? 'text-[#d4a843]' : 'text-[#d4a843]'}`}>
-                  {plan.name}
-                </h3>
-                <div className="flex items-end gap-1">
-                  <span className="text-5xl font-extrabold">{plan.price}</span>
-                  <span className={`text-sm mb-2 ${plan.highlight ? 'text-[#d4a843]/70' : 'text-gray-400'}`}>{plan.period}</span>
-                </div>
-                <p className={`text-sm mt-2 ${plan.highlight ? 'text-white/70' : 'text-gray-500'}`}>{plan.description}</p>
-              </div>
-
-              <div className={`text-xs font-semibold rounded-lg px-3 py-2 ${plan.highlight ? 'bg-[#d4a843]/15 text-[#d4a843]' : 'bg-[#fdf3d9] text-[#92700a]'}`}>
-                {plan.maxLotes} · {plan.maxUsers}
-              </div>
-
-              <ul className="flex flex-col gap-3">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm">
-                    <svg className={`mt-0.5 shrink-0 ${plan.highlight ? 'text-[#d4a843]' : 'text-[#d4a843]'}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    <span className={plan.highlight ? 'text-white/85' : 'text-gray-600'}>{f}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <Link
-                href="/login"
-                className={`mt-auto text-center font-semibold text-sm px-6 py-3 rounded-full transition-colors ${
-                  plan.highlight
-                    ? 'bg-[#d4a843] text-[#1a1a1a] hover:bg-[#b8922e]'
-                    : 'bg-[#1a1a1a] text-white hover:bg-[#333]'
-                }`}
+        {/* ── Pasos ──────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
+          {PASOS.map((p, i) => {
+            const Icon = p.icon;
+            return (
+              <div
+                key={p.n}
+                className="relative bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-lg hover:border-[#d4a843]/40 transition-all"
               >
-                {plan.cta}
-              </Link>
-            </div>
-          ))}
+                {/* Connector arrow (desktop only) */}
+                {i < PASOS.length - 1 && (
+                  <div className="hidden lg:flex absolute top-1/2 -right-3 -translate-y-1/2 w-6 h-6 rounded-full bg-[#fdf3d9] items-center justify-center z-10">
+                    <ArrowRight size={12} className="text-[#d4a843]" />
+                  </div>
+                )}
+
+                {/* Number badge */}
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-3xl font-extrabold text-[#d4a843]/30">{p.n}</span>
+                  <div className="w-10 h-10 rounded-xl bg-[#fdf3d9] text-[#d4a843] flex items-center justify-center">
+                    <Icon size={20} />
+                  </div>
+                </div>
+
+                <h3 className="font-bold text-gray-900 text-base mb-2">{p.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">{p.desc}</p>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Benefits */}
+        {/* ── Precio + CTA ───────────────────────────────────── */}
+        <div className="bg-gradient-to-br from-[#1a1a1a] via-[#1f1f1f] to-[#2a2a2a] rounded-3xl overflow-hidden shadow-2xl">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
+            {/* Precio */}
+            <div className="lg:col-span-2 p-8 sm:p-10 lg:border-r lg:border-white/10 flex flex-col justify-center">
+              <span className="text-[#d4a843] text-xs font-bold uppercase tracking-widest mb-3">Inversión única</span>
+              <div className="flex items-baseline gap-2 mb-2">
+                <span className="text-5xl sm:text-6xl font-extrabold text-white">$2,000</span>
+                <span className="text-lg text-gray-400 font-medium">USD</span>
+              </div>
+              <p className="text-sm text-gray-400 mb-4">≈ Q15,400 GTQ al tipo de cambio actual</p>
+              <div className="h-px bg-white/10 my-4" />
+              <ul className="flex flex-col gap-2 text-sm text-white/80">
+                <li className="flex items-start gap-2">
+                  <span className="text-[#d4a843] mt-0.5">✓</span>
+                  Configuración llave en mano
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-[#d4a843] mt-0.5">✓</span>
+                  Capacitación incluida
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-[#d4a843] mt-0.5">✓</span>
+                  Soporte continuo y actualizaciones
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-[#d4a843] mt-0.5">✓</span>
+                  Sin contratos atados
+                </li>
+              </ul>
+            </div>
+
+            {/* CTAs */}
+            <div className="lg:col-span-3 p-8 sm:p-10 flex flex-col justify-center gap-5">
+              <div>
+                <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-3 leading-tight">
+                  ¿Listo para digitalizar tu lotificación?
+                </h3>
+                <p className="text-white/70 text-base leading-relaxed">
+                  Agenda una demo gratuita y descubre cómo TerraGroup puede transformar la gestión de cobranza de tu empresa.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                <a
+                  href="mailto:terragroup692@gmail.com?subject=Solicitud%20de%20demo%20TerraGroup"
+                  className="flex items-center justify-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-[#1a1a1a] font-bold px-6 py-4 rounded-full transition-colors text-sm shadow-lg shadow-[#d4a843]/20"
+                >
+                  <Mail size={16} />
+                  Solicitar demo gratuita
+                </a>
+                <Link
+                  href="/register"
+                  className="flex items-center justify-center gap-2 border border-white/30 hover:border-white text-white font-semibold px-6 py-4 rounded-full transition-colors text-sm"
+                >
+                  Crear cuenta ahora
+                  <ArrowRight size={16} />
+                </Link>
+              </div>
+
+              <p className="text-xs text-white/50 mt-1">
+                ¿Dudas? Escríbenos a{' '}
+                <a href="mailto:terragroup692@gmail.com" className="text-[#d4a843] hover:underline">
+                  terragroup692@gmail.com
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Benefits ───────────────────────────────────────── */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-5 gap-6">
-          {[
-            'Mayor control de tu cartera',
-            'Ahorro de tiempo y recursos',
-            'Decisiones basadas en información real',
-            'Seguridad y respaldo de tu información',
-            'Soporte técnico confiable',
-          ].map((b) => (
+          {BENEFITS.map((b) => (
             <div key={b} className="flex flex-col items-center gap-2 text-center">
               <div className="w-10 h-10 rounded-full bg-[#fdf3d9] text-[#d4a843] flex items-center justify-center">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

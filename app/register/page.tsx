@@ -84,18 +84,18 @@ export default function RegisterPage() {
       </div>
 
       {/* Stepper */}
-      <div className="flex items-center gap-2 mb-8">
+      <div className="flex items-center gap-2 mb-8 flex-wrap justify-center">
         {STEPS.map((label, i) => (
           <div key={i} className="flex items-center gap-2">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors shrink-0 ${
               i < step ? 'bg-[#d4a843] text-white' :
               i === step ? 'bg-[#1a1a1a] text-white' :
               'bg-gray-200 text-gray-400'
             }`}>
               {i < step ? '✓' : i + 1}
             </div>
-            <span className={`text-sm font-medium ${i === step ? 'text-[#1a1a1a]' : 'text-gray-400'}`}>{label}</span>
-            {i < STEPS.length - 1 && <div className={`w-10 h-0.5 mx-1 ${i < step ? 'bg-[#d4a843]' : 'bg-gray-200'}`} />}
+            <span className={`text-sm font-medium hidden sm:inline ${i === step ? 'text-[#1a1a1a]' : 'text-gray-400'}`}>{label}</span>
+            {i < STEPS.length - 1 && <div className={`w-6 sm:w-10 h-0.5 mx-1 ${i < step ? 'bg-[#d4a843]' : 'bg-gray-200'}`} />}
           </div>
         ))}
       </div>

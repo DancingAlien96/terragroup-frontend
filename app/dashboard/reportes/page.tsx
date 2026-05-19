@@ -1,18 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BarChart2, Clock, Users, UserCheck, Download, CheckCircle2, TrendingUp } from 'lucide-react';
+import { BarChart2, Clock, Users, UserCheck, Download, CheckCircle2, TrendingUp, FileBarChart, MapPin, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 
-type TipoReporte = 'cobranza' | 'cartera' | 'clientes' | 'vendedores' | 'comisiones_mes';
+type TipoReporte = 'general' | 'cobranza' | 'cartera' | 'clientes' | 'vendedores' | 'comisiones_mes';
 type FormatoExport = 'PDF' | 'Excel' | 'CSV';
 
 const TIPOS_REPORTE = [
-  { id: 'cobranza'      as TipoReporte, label: 'Cobranza General',           icon: BarChart2 },
-  { id: 'cartera'       as TipoReporte, label: 'Clientes con Pago Pendiente', icon: Clock },
-  { id: 'clientes'      as TipoReporte, label: 'Reporte de Clientes',        icon: Users },
-  { id: 'vendedores'    as TipoReporte, label: 'Vendedores y Comisiones',    icon: UserCheck },
-  { id: 'comisiones_mes' as TipoReporte, label: 'Comisiones por Mes',        icon: TrendingUp },
+  { id: 'general'        as TipoReporte, label: 'Resumen Ejecutivo',           icon: FileBarChart },
+  { id: 'cobranza'       as TipoReporte, label: 'Cobranza General',            icon: BarChart2 },
+  { id: 'cartera'        as TipoReporte, label: 'Clientes con Pago Pendiente', icon: Clock },
+  { id: 'clientes'       as TipoReporte, label: 'Reporte de Clientes',         icon: Users },
+  { id: 'vendedores'     as TipoReporte, label: 'Vendedores y Comisiones',     icon: UserCheck },
+  { id: 'comisiones_mes' as TipoReporte, label: 'Comisiones por Mes',          icon: TrendingUp },
 ];
 
 const fmt = (n: number) =>
@@ -54,6 +55,7 @@ export default function ReportesPage() {
   const [pagos, setPagos] = useState<any[]>([]);
   const [vendedores, setVendedores] = useState<any[]>([]);
   const [comisionesMes, setComisionesMes] = useState<{ mes: string; mes_key: string; vendedor: string; total: number; cantidad: number }[]>([]);
+  const [resumen, setResumen] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,11 +64,13 @@ export default function ReportesPage() {
       api.clientes.list().catch(() => []),
       api.pagos.list().catch(() => []),
       api.vendedores.list().catch(() => []),
-    ]).then(async ([rep, cli, pag, ven]) => {
+      api.stats.resumenEjecutivo().catch(() => null),
+    ]).then(async ([rep, cli, pag, ven, res]) => {
       setReportData(rep);
       setClientes(cli ?? []);
       setPagos(pag ?? []);
       setVendedores(ven ?? []);
+      setResumen(res);
       // Cargar comisiones de cada vendedor y agrupar por mes
       const allComisiones: any[] = [];
       await Promise.all((ven ?? []).map(async (v: any) => {
@@ -119,6 +123,48 @@ export default function ReportesPage() {
   const maxBar = Math.max(...monthly.map((d: any) => Number(d.cobrado) + Number(d.pendiente)), 1);
 
   function getExportData(): { headers: string[]; rows: (string | number)[][]; title: string } {
+    if (tipo === 'general') {
+      const r = resumen;
+      const rows: (string | number)[][] = [];
+      if (r) {
+        rows.push(['EMPRESA', r.empresa?.nombre ?? '—', '', '', '']);
+        rows.push(['Plan', r.empresa?.plan ?? '—', '', '', '']);
+        rows.push(['', '', '', '', '']);
+        rows.push(['── KPIs FINANCIEROS ──', '', '', '', '']);
+        rows.push(['Total Cobrado',   fmt(r.kpi.total_cobrado),   '', '', '']);
+        rows.push(['Total Pendiente', fmt(r.kpi.total_pendiente), '', '', '']);
+        rows.push(['Total Vencido',   fmt(r.kpi.total_vencido),   '', '', '']);
+        rows.push(['Tasa de Cobranza', `${r.kpi.tasa_cobranza}%`, '', '', '']);
+        rows.push(['', '', '', '', '']);
+        rows.push(['── CARTERA ──', '', '', '', '']);
+        rows.push(['Clientes totales',    r.cartera.clientes_totales, '', '', '']);
+        rows.push(['Clientes en mora',    r.cartera.clientes_en_mora, '', '', '']);
+        rows.push(['Mora grave (>90d)',   r.cartera.mora_grave,       '', '', '']);
+        rows.push(['Mora media (31-90d)', r.cartera.mora_media,       '', '', '']);
+        rows.push(['Mora temprana (<30d)', r.cartera.mora_temprana,   '', '', '']);
+        rows.push(['', '', '', '', '']);
+        rows.push(['── LOTES ──', '', '', '', '']);
+        rows.push(['Total',      r.lotes.total,      '', '', '']);
+        rows.push(['Disponible', r.lotes.disponible, '', '', '']);
+        rows.push(['Vendido',    r.lotes.vendido,    '', '', '']);
+        rows.push(['Reservado',  r.lotes.reservado,  '', '', '']);
+        rows.push(['', '', '', '', '']);
+        rows.push(['── TOP 5 DEUDORES ──', 'Lote', 'Cuotas', 'Monto vencido', 'Días mora']);
+        for (const d of (r.top_deudores ?? [])) {
+          rows.push([d.nombre, d.lote, d.cuotas_vencidas, fmt(d.monto_vencido), d.dias_mora]);
+        }
+        rows.push(['', '', '', '', '']);
+        rows.push(['── TOP 5 VENDEDORES ──', 'Ventas', 'Comisiones', '', '']);
+        for (const v of (r.top_vendedores ?? [])) {
+          rows.push([v.nombre, v.ventas, fmt(v.total_comisiones), '', '']);
+        }
+      }
+      return {
+        title: 'Resumen Ejecutivo',
+        headers: ['Concepto', 'Valor', 'Detalle', 'Extra', 'Extra 2'],
+        rows,
+      };
+    }
     if (tipo === 'cobranza') {
       return {
         title: 'Cobranza General',
@@ -238,21 +284,226 @@ export default function ReportesPage() {
 
         {/* Main content */}
         <div className="flex-1 flex flex-col gap-5">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
-              <p className="text-xs text-gray-500 mb-1">Total Cobrado</p>
-              <p className={`text-2xl font-bold text-[#d4a843] ${loading ? 'animate-pulse' : ''}`}>{loading ? '—' : fmt(totalCobrado)}</p>
+          {/* KPI Cards — varía según el tipo */}
+          {tipo === 'general' && resumen ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
+                <p className="text-xs text-gray-500 mb-1">Total Cobrado</p>
+                <p className="text-2xl font-bold text-[#d4a843]">{fmt(resumen.kpi.total_cobrado)}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
+                <p className="text-xs text-gray-500 mb-1">Pendiente</p>
+                <p className="text-2xl font-bold text-orange-500">{fmt(resumen.kpi.total_pendiente)}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
+                <p className="text-xs text-gray-500 mb-1">Vencido</p>
+                <p className="text-2xl font-bold text-red-500">{fmt(resumen.kpi.total_vencido)}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
+                <p className="text-xs text-gray-500 mb-1">Tasa Cobranza</p>
+                <p className="text-2xl font-bold text-blue-600">{resumen.kpi.tasa_cobranza}%</p>
+              </div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
-              <p className="text-xs text-gray-500 mb-1">Pendiente</p>
-              <p className={`text-2xl font-bold text-orange-500 ${loading ? 'animate-pulse' : ''}`}>{loading ? '—' : fmt(totalPendiente)}</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
+                <p className="text-xs text-gray-500 mb-1">Total Cobrado</p>
+                <p className={`text-2xl font-bold text-[#d4a843] ${loading ? 'animate-pulse' : ''}`}>{loading ? '—' : fmt(totalCobrado)}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
+                <p className="text-xs text-gray-500 mb-1">Pendiente</p>
+                <p className={`text-2xl font-bold text-orange-500 ${loading ? 'animate-pulse' : ''}`}>{loading ? '—' : fmt(totalPendiente)}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
+                <p className="text-xs text-gray-500 mb-1">Tasa Cobranza</p>
+                <p className={`text-2xl font-bold text-blue-600 ${loading ? 'animate-pulse' : ''}`}>{loading ? '—' : `${tasa}%`}</p>
+              </div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
-              <p className="text-xs text-gray-500 mb-1">Tasa Cobranza</p>
-              <p className={`text-2xl font-bold text-blue-600 ${loading ? 'animate-pulse' : ''}`}>{loading ? '—' : `${tasa}%`}</p>
-            </div>
-          </div>
+          )}
+
+          {/* ─── Resumen Ejecutivo (General) ─────────────────────── */}
+          {tipo === 'general' && (
+            loading ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-10 shadow-sm text-center text-gray-400">Cargando resumen...</div>
+            ) : !resumen ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-10 shadow-sm text-center text-gray-400">Sin datos disponibles</div>
+            ) : (
+              <>
+                {/* Empresa header */}
+                <div className="bg-gradient-to-r from-[#1a1a1a] to-[#2a2a2a] text-white rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <p className="text-xs text-[#d4a843] uppercase tracking-wide font-semibold">Empresa</p>
+                    <p className="text-lg font-bold">{resumen.empresa.nombre}</p>
+                  </div>
+                  <div className="flex flex-col sm:items-end gap-0.5">
+                    <span className="inline-flex w-fit text-xs font-semibold px-2.5 py-1 rounded-full bg-[#d4a843]/20 text-[#d4a843] capitalize">
+                      Plan {resumen.empresa.plan}
+                    </span>
+                    {resumen.empresa.fecha_vence && (
+                      <p className="text-xs text-gray-400">Vence: {fmtDate(resumen.empresa.fecha_vence)}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cartera + Lotes */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Cartera */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <AlertTriangle size={16} className="text-red-500" />
+                      <h3 className="font-semibold text-[#1a1a1a]">Cartera</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Clientes totales</p>
+                        <p className="text-xl font-bold text-[#1a1a1a]">{resumen.cartera.clientes_totales}</p>
+                      </div>
+                      <div className="bg-red-50 rounded-lg p-3">
+                        <p className="text-xs text-red-600">En mora</p>
+                        <p className="text-xl font-bold text-red-600">{resumen.cartera.clientes_en_mora}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Distribución de mora</p>
+                    <div className="flex gap-2">
+                      <div className="flex-1 bg-red-50 border border-red-100 rounded-lg p-2 text-center">
+                        <p className="text-lg font-bold text-red-500">{resumen.cartera.mora_grave}</p>
+                        <p className="text-[10px] text-red-600 uppercase tracking-wide">Grave</p>
+                      </div>
+                      <div className="flex-1 bg-orange-50 border border-orange-100 rounded-lg p-2 text-center">
+                        <p className="text-lg font-bold text-orange-500">{resumen.cartera.mora_media}</p>
+                        <p className="text-[10px] text-orange-600 uppercase tracking-wide">Media</p>
+                      </div>
+                      <div className="flex-1 bg-amber-50 border border-amber-100 rounded-lg p-2 text-center">
+                        <p className="text-lg font-bold text-[#d4a843]">{resumen.cartera.mora_temprana}</p>
+                        <p className="text-[10px] text-amber-700 uppercase tracking-wide">Temprana</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3 text-center">
+                      Total vencido: <span className="font-bold text-red-500">{fmt(resumen.cartera.total_vencido)}</span>
+                    </p>
+                  </div>
+
+                  {/* Lotes */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <MapPin size={16} className="text-[#d4a843]" />
+                      <h3 className="font-semibold text-[#1a1a1a]">Inventario de Lotes</h3>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-green-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-green-700">Disponibles</p>
+                        <p className="text-2xl font-bold text-green-600">{resumen.lotes.disponible}</p>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-blue-700">Vendidos</p>
+                        <p className="text-2xl font-bold text-blue-600">{resumen.lotes.vendido}</p>
+                      </div>
+                      <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-yellow-700">Reservados</p>
+                        <p className="text-2xl font-bold text-yellow-600">{resumen.lotes.reservado}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3 text-center">
+                      Total en catálogo: <span className="font-bold text-[#1a1a1a]">{resumen.lotes.total}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Top deudores */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h3 className="font-semibold text-[#1a1a1a]">Top 5 Deudores</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Clientes con mayor monto vencido</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-100 text-xs text-gray-400">
+                          <th className="px-5 py-3 text-left font-medium">Cliente</th>
+                          <th className="px-5 py-3 text-left font-medium">Lote</th>
+                          <th className="px-5 py-3 text-right font-medium">Cuotas</th>
+                          <th className="px-5 py-3 text-right font-medium">Vencido</th>
+                          <th className="px-5 py-3 text-right font-medium">Días mora</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {resumen.top_deudores.length === 0 ? (
+                          <tr><td colSpan={5} className="px-5 py-6 text-center text-gray-400">Sin deudores 🎉</td></tr>
+                        ) : resumen.top_deudores.map((d: any, i: number) => (
+                          <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                            <td className="px-5 py-3 font-medium text-[#1a1a1a]">{d.nombre}</td>
+                            <td className="px-5 py-3 text-gray-500">{d.lote}</td>
+                            <td className="px-5 py-3 text-right">{d.cuotas_vencidas}</td>
+                            <td className="px-5 py-3 text-right font-bold text-red-500">{fmt(d.monto_vencido)}</td>
+                            <td className="px-5 py-3 text-right">
+                              <span className={`font-bold ${d.dias_mora > 90 ? 'text-red-500' : d.dias_mora > 30 ? 'text-orange-500' : 'text-[#d4a843]'}`}>{d.dias_mora}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Top vendedores */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h3 className="font-semibold text-[#1a1a1a]">Top 5 Vendedores</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Por total de comisiones</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-100 text-xs text-gray-400">
+                          <th className="px-5 py-3 text-left font-medium">Vendedor</th>
+                          <th className="px-5 py-3 text-right font-medium">Ventas</th>
+                          <th className="px-5 py-3 text-right font-medium">Total Comisiones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {resumen.top_vendedores.length === 0 ? (
+                          <tr><td colSpan={3} className="px-5 py-6 text-center text-gray-400">Sin comisiones registradas</td></tr>
+                        ) : resumen.top_vendedores.map((v: any, i: number) => (
+                          <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                            <td className="px-5 py-3 font-medium text-[#1a1a1a]">{v.nombre}</td>
+                            <td className="px-5 py-3 text-right">{v.ventas}</td>
+                            <td className="px-5 py-3 text-right font-bold text-[#d4a843]">{fmt(v.total_comisiones)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Tendencia mini */}
+                {resumen.tendencia && resumen.tendencia.length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                    <h3 className="font-semibold text-[#1a1a1a] mb-1">Tendencia de Cobranza</h3>
+                    <p className="text-xs text-gray-400 mb-4">Últimos {resumen.tendencia.length} mes(es)</p>
+                    <div className="flex items-end gap-2 sm:gap-4 h-28">
+                      {(() => {
+                        const max = Math.max(...resumen.tendencia.map((t: any) => Number(t.cobrado)), 1);
+                        return resumen.tendencia.map((t: any) => {
+                          const px = Math.round((Number(t.cobrado) / max) * 100);
+                          return (
+                            <div key={t.mes_key} className="flex-1 flex flex-col items-center gap-1">
+                              <div className="text-[10px] font-semibold text-gray-500">{fmt(Number(t.cobrado))}</div>
+                              <div className="w-full bg-[#d4a843] rounded-t-sm" style={{ height: `${px}px` }} />
+                              <span className="text-[10px] text-gray-400">{t.mes}</span>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-400 text-center">
+                  Generado el {new Date(resumen.generado_en).toLocaleString('es-GT', { dateStyle: 'long', timeStyle: 'short' })}
+                </p>
+              </>
+            )
+          )}
 
           {/* Bar chart */}
           {tipo === 'cobranza' && (

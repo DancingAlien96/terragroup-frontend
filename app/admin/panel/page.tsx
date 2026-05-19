@@ -166,7 +166,7 @@ export default function AdminPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {STAT_CARDS.map(card => (
           <div key={card.key} className={`${card.bg} rounded-2xl p-5 border border-gray-100`}>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{card.label}</p>

@@ -202,8 +202,8 @@ export default function ExpedientesPage() {
   }, [clienteSel, cargarDocs]);
 
   async function handleDelete(id: number) {
-    if (!await showConfirm('Â¿Eliminar este documento?', {
-      description: 'El archivo serÃ¡ eliminado del expediente. Esta acciÃ³n no se puede deshacer.',
+    if (!await showConfirm('¿Eliminar este documento?', {
+      description: 'El archivo será eliminado del expediente. Esta acción no se puede deshacer.',
       danger: true,
       confirmLabel: 'Eliminar',
     })) return;
@@ -224,12 +224,12 @@ export default function ExpedientesPage() {
     <div className="flex flex-col gap-0">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">Expedientes de clientes</h1>
-        <p className="text-sm text-gray-500 mt-0.5">DocumentaciÃ³n legal por cliente</p>
+        <p className="text-sm text-gray-500 mt-0.5">Documentación legal por cliente</p>
       </div>
 
-      <div className="flex gap-4" style={{ height: 'calc(100vh - 180px)' }}>
-        {/* â”€â”€ Panel izquierdo: lista de clientes â”€â”€ */}
-        <div className="w-72 shrink-0 flex flex-col bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+      <div className="flex flex-col md:flex-row gap-4 md:h-[calc(100vh-180px)]">
+        {/* ── Panel izquierdo: lista de clientes ── */}
+        <div className="w-full md:w-72 md:shrink-0 flex flex-col bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden max-h-64 md:max-h-none">
           <div className="px-3 pt-3 pb-2 border-b border-gray-50">
             <div className="relative">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -276,8 +276,8 @@ export default function ExpedientesPage() {
           </div>
         </div>
 
-        {/* â”€â”€ Panel derecho: documentos â”€â”€ */}
-        <div className="flex-1 flex flex-col bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+        {/* ── Panel derecho: documentos ── */}
+        <div className="flex-1 flex flex-col bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden min-h-[400px] md:min-h-0">
           {!clienteSel ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 p-8">
               <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center">
@@ -285,7 +285,7 @@ export default function ExpedientesPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-400">Selecciona un cliente</p>
-                <p className="text-xs text-gray-300 mt-1">para ver o subir su documentaciÃ³n</p>
+                <p className="text-xs text-gray-300 mt-1">para ver o subir su documentación</p>
               </div>
             </div>
           ) : (
@@ -313,7 +313,7 @@ export default function ExpedientesPage() {
                 ) : docs.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
                     <FileText size={32} className="text-gray-200" />
-                    <p className="text-sm text-gray-400">Este cliente no tiene documentos aÃºn</p>
+                    <p className="text-sm text-gray-400">Este cliente no tiene documentos aún</p>
                     <p className="text-xs text-gray-300">Sube el primer PDF usando el panel de arriba</p>
                   </div>
                 ) : (
