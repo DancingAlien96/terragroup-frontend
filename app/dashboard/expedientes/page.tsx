@@ -16,10 +16,10 @@ interface Cliente {
 
 interface Expediente {
   id: number;
-  cliente_id: number;
+  ventaId: number;
   nombre: string;
-  archivo_url: string;
-  created_at: string;
+  archivoUrl: string;
+  createdAt: string;
 }
 
 function fmtDate(d: string) {
@@ -142,11 +142,11 @@ function DocCard({ doc, onDelete, readOnly }: { doc: Expediente; onDelete: (id: 
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900 truncate">{doc.nombre}</p>
-        <p className="text-xs text-gray-400 mt-0.5">{fmtDate(doc.created_at)}</p>
+        <p className="text-xs text-gray-400 mt-0.5">{fmtDate(doc.createdAt)}</p>
       </div>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <a
-          href={doc.archivo_url}
+          href={doc.archivoUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
