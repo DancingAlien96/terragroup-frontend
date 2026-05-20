@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
-import { Eye, X } from 'lucide-react';
+import { Eye, X, TableProperties, RefreshCw, Upload, FileText } from 'lucide-react';
 import { isReadOnly } from '@/lib/auth';
 import { useDialog } from '@/lib/useDialog';
+import { useUploadThing } from '@/lib/uploadthing';
 
 /* ── Types ─────────────────────────────────────────────────── */
-type Entidad = 'Banrural' | 'Industrial' | 'G&T' | 'BAC';
+type Entidad = 'Banrural' | 'Industrial' | 'GT' | 'BAC';
 
 interface Cliente {
   id: number;
@@ -17,6 +18,7 @@ interface Cliente {
   descripcion_lote: string | null;
   precio_neto: number;
   enganche: number;
+  tasa_anual: number;
   num_cuotas: number;
   valor_cuota: number;
   cuota_inicio: number;
@@ -24,7 +26,17 @@ interface Cliente {
   num_transferencia: string | null;
   metodo_pago: string | null;
   entidad_bancaria: Entidad | null;
+  comprobante_enganche_url: string | null;
   activo: boolean;
+}
+
+/** PMT estándar (idéntico al backend). Devuelve cuota mensual referencial. */
+function pmtMensual(montoFinanciado: number, tasaAnual: number, numCuotas: number): number {
+  if (montoFinanciado <= 0 || numCuotas <= 0) return 0;
+  if (tasaAnual === 0) return montoFinanciado / numCuotas;
+  const años = numCuotas / 12;
+  const cuotaAnual = (montoFinanciado * tasaAnual) / (1 - Math.pow(1 + tasaAnual, -años));
+  return cuotaAnual / 12;
 }
 
 const fmt = (n: number) =>
@@ -33,6 +45,195 @@ const fmt = (n: number) =>
 function fmtDate(d: string | null) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+/* ── PlanModal: tabla de amortización ───────────────────────── */
+function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
+  const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
+  const [loading, setLoading] = useState(true);
+  const [regenerando, setRegenerando] = useState(false);
+  const [plan, setPlan] = useState<any[]>([]);
+  const { showAlert, showConfirm, DialogJSX: PlanDialogJSX } = useDialog();
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.amortizacion.getPlan(cliente.id);
+      setPlan(data.plan ?? []);
+    } catch (e: any) {
+      showAlert(e.message ?? 'Error al cargar el plan');
+      setPlan([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [cliente.id, showAlert]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  async function handleRegenerar() {
+    if (!await showConfirm('¿Regenerar el plan?', {
+      description: 'Se recalcularán todas las cuotas con los términos actuales. Los pagos registrados no se modifican.',
+      confirmLabel: 'Regenerar',
+    })) return;
+    setRegenerando(true);
+    try {
+      await api.amortizacion.regenerar(cliente.id);
+      await cargar();
+    } catch (e: any) {
+      showAlert(e.message ?? 'Error al regenerar');
+    } finally {
+      setRegenerando(false);
+    }
+  }
+
+  const totales = plan.reduce(
+    (acc, c) => ({
+      cuota:   acc.cuota   + Number(c.cuotaReferencial),
+      capital: acc.capital + Number(c.capitalReferencial),
+      interes: acc.interes + Number(c.interesReferencial),
+    }),
+    { cuota: 0, capital: 0, interes: 0 },
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-6">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[95vw] max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Plan de pagos</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{cliente.nombre_comprador} · {cliente.descripcion_lote ?? '—'}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+        </div>
+
+        {/* Resumen */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 px-6 py-4 bg-amber-50/40 border-b border-gray-100 text-xs">
+          <div><p className="text-gray-500">Precio</p><p className="font-mono font-semibold text-gray-900">{fmt(cliente.precio_neto)}</p></div>
+          <div><p className="text-gray-500">Enganche</p><p className="font-mono font-semibold text-gray-900">{fmt(cliente.enganche)}</p></div>
+          <div><p className="text-gray-500">Tasa anual</p><p className="font-mono font-semibold text-gray-900">{(Number(cliente.tasa_anual) * 100).toFixed(2)}%</p></div>
+          <div><p className="text-gray-500">Plazo</p><p className="font-mono font-semibold text-gray-900">{cliente.num_cuotas} meses</p></div>
+          <div><p className="text-gray-500">Cuota mensual</p><p className="font-mono font-semibold text-[#b8922e]">{fmt(cliente.valor_cuota)}</p></div>
+        </div>
+
+        {/* Tabla */}
+        <div className="flex-1 overflow-auto px-6 py-4">
+          {loading ? (
+            <p className="text-sm text-gray-400 text-center py-10">Cargando plan...</p>
+          ) : plan.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+              <TableProperties size={32} className="text-gray-300" />
+              <p className="text-sm text-gray-500">Este cliente aún no tiene plan de cuotas generado</p>
+              {!readOnly && (
+                <button onClick={handleRegenerar} disabled={regenerando}
+                  className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold text-xs px-4 py-2 rounded-xl transition-colors disabled:opacity-60">
+                  <RefreshCw size={14} className={regenerando ? 'animate-spin' : ''} />
+                  {regenerando ? 'Generando...' : 'Generar plan'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <table className="w-full text-xs">
+              <thead className="text-gray-500 uppercase tracking-wide sticky top-0 bg-white">
+                <tr className="border-b border-gray-200">
+                  <th className="text-left  py-2 px-2 font-medium">Mes</th>
+                  <th className="text-left  py-2 px-2 font-medium">Vence</th>
+                  <th className="text-left  py-2 px-2 font-medium">Fecha pago</th>
+                  <th className="text-left  py-2 px-2 font-medium">Descripción</th>
+                  <th className="text-left  py-2 px-2 font-medium">F. Pago</th>
+                  <th className="text-right py-2 px-2 font-medium">Cuota Mensual</th>
+                  <th className="text-right py-2 px-2 font-medium">Capital</th>
+                  <th className="text-right py-2 px-2 font-medium">Intereses</th>
+                  <th className="text-right py-2 px-2 font-medium">Saldo</th>
+                  <th className="text-center py-2 px-2 font-medium">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plan.map((c) => {
+                  const estado    = c.pago?.estado ?? null;
+                  const formaPago = c.pago?.metodoPago ?? '';
+                  const descPago  = c.pago?.descripcion ?? '';
+                  const fechaPago = c.pago?.fechaPago ?? null;
+
+                  // Calcular días de atraso (mora) comparando fechaPago vs fechaVencimiento.
+                  // Si aún no se paga y ya pasó la fecha → atraso = días desde vencimiento hasta hoy.
+                  const venceMs = new Date(c.fechaVencimiento).getTime();
+                  const refMs   = fechaPago ? new Date(fechaPago).getTime() : Date.now();
+                  const diasAtraso = Math.max(0, Math.floor((refMs - venceMs) / (1000 * 60 * 60 * 24)));
+                  const pagadoTarde = fechaPago != null && diasAtraso > 0;
+                  const vencidoSinPago = fechaPago == null && diasAtraso > 0;
+
+                  let label = estado ?? 'sin pago';
+                  let colorEstado = 'bg-gray-50 text-gray-400';
+                  if (fechaPago) {
+                    if (pagadoTarde) {
+                      label = `pagado · ${diasAtraso}d tarde`;
+                      colorEstado = 'bg-yellow-50 text-yellow-800';
+                    } else {
+                      label = 'pagado a tiempo';
+                      colorEstado = 'bg-emerald-50 text-emerald-700';
+                    }
+                  } else if (vencidoSinPago) {
+                    label = `vencido · ${diasAtraso}d`;
+                    colorEstado = 'bg-red-50 text-red-700';
+                  } else if (estado === 'pendiente') {
+                    label = 'pendiente';
+                    colorEstado = 'bg-amber-50 text-amber-700';
+                  }
+                  return (
+                    <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                      <td className="py-1.5 px-2 text-gray-600">{c.numCuota}</td>
+                      <td className="py-1.5 px-2 text-gray-500 whitespace-nowrap">{fmtDate(c.fechaVencimiento)}</td>
+                      <td className="py-1.5 px-2 text-gray-700 whitespace-nowrap">{fechaPago ? fmtDate(fechaPago) : '—'}</td>
+                      <td className="py-1.5 px-2 text-gray-500">{descPago || '—'}</td>
+                      <td className="py-1.5 px-2 text-gray-700">{formaPago || '—'}</td>
+                      <td className="py-1.5 px-2 text-right font-mono text-gray-800">{fmt(Number(c.cuotaReferencial))}</td>
+                      <td className="py-1.5 px-2 text-right font-mono text-gray-600">{fmt(Number(c.capitalReferencial))}</td>
+                      <td className="py-1.5 px-2 text-right font-mono text-gray-600">{fmt(Number(c.interesReferencial))}</td>
+                      <td className="py-1.5 px-2 text-right font-mono text-gray-500">{fmt(Number(c.saldoReferencial))}</td>
+                      <td className="py-1.5 px-2 text-center">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${colorEstado}`}>
+                          {label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="font-semibold text-gray-800 border-t-2 border-gray-300">
+                  <td colSpan={5} className="py-2 px-2">Totales</td>
+                  <td className="py-2 px-2 text-right font-mono">{fmt(totales.cuota)}</td>
+                  <td className="py-2 px-2 text-right font-mono">{fmt(totales.capital)}</td>
+                  <td className="py-2 px-2 text-right font-mono">{fmt(totales.interes)}</td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
+          <p className="text-xs text-gray-400">{plan.length} cuotas en el plan</p>
+          <div className="flex gap-2">
+            {plan.length > 0 && !readOnly && (
+              <button onClick={handleRegenerar} disabled={regenerando}
+                className="flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium text-xs px-3 py-2 rounded-xl transition-colors disabled:opacity-60">
+                <RefreshCw size={13} className={regenerando ? 'animate-spin' : ''} />
+                {regenerando ? 'Regenerando...' : 'Regenerar'}
+              </button>
+            )}
+            <button onClick={onClose}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-xs px-4 py-2 rounded-xl transition-colors">
+              Cerrar
+            </button>
+          </div>
+        </div>
+        {PlanDialogJSX}
+      </div>
+    </div>
+  );
 }
 
 /* ── DetalleModal ───────────────────────────────────────────── */
@@ -288,17 +489,68 @@ function ClienteModal({
   const [descLote, setDescLote] = useState(cliente?.descripcion_lote ?? '');
   const [precioNeto, setPrecioNeto] = useState(String(cliente?.precio_neto ?? ''));
   const [enganche, setEnganche] = useState(String(cliente?.enganche ?? ''));
-  const [numCuotas, setNumCuotas] = useState(String(cliente?.num_cuotas ?? ''));
+  const [tasaAnualPct, setTasaAnualPct] = useState(() => {
+    const t = cliente?.tasa_anual;
+    if (t == null) return '';
+    // Redondea a 4 decimales para evitar drift de coma flotante (0.1 * 100 = 10.0000…02)
+    const pct = Number((Number(t) * 100).toFixed(4));
+    return String(pct);
+  });
+  // Plazo en años: lo que el admin teclea. Cuotas = años × 12 (derivado).
+  const [plazoAnios, setPlazoAnios] = useState(() => {
+    const n = cliente?.num_cuotas;
+    if (!n) return '';
+    // Si los datos heredados no son múltiplo de 12, redondea al alza
+    return String(Math.ceil(n / 12));
+  });
+  const cuotasNum  = Number(plazoAnios) * 12;
   const [valorCuota, setValorCuota] = useState(String(cliente?.valor_cuota ?? ''));
+
+  // Auto-calcular cuota cuando hay tasa anual definida (campos requeridos).
+  const tasaNum    = Number(tasaAnualPct) / 100;
+  const precioNum  = Number(precioNeto);
+  const engancheNum = Number(enganche);
+  const cuotaAuto  = tasaNum > 0 && precioNum > 0 && cuotasNum > 0
+    ? pmtMensual(precioNum - engancheNum, tasaNum, cuotasNum)
+    : null;
+  useEffect(() => {
+    if (cuotaAuto != null) setValorCuota(cuotaAuto.toFixed(2));
+  }, [cuotaAuto]);
   const [cuotaInicio, setCuotaInicio] = useState(String(cliente?.cuota_inicio ?? 1));
   const [fechaDeposito, setFechaDeposito] = useState(
     (cliente?.fecha_deposito ?? today).slice(0, 10)
   );
-  const [metodo, setMetodo] = useState(cliente?.metodo_pago ?? 'Transferencia');
+  // Normaliza método (la BD a veces tiene "transferencia" en lowercase, el form usa "Transferencia")
+  const metodoOptions = ['Transferencia', 'Efectivo', 'Depósito', 'Cheque'];
+  const normMetodo = (raw: string | null | undefined) =>
+    metodoOptions.find(o => o.toLowerCase() === (raw ?? '').toLowerCase()) ?? 'Transferencia';
+  const [metodo, setMetodo] = useState(normMetodo(cliente?.metodo_pago));
   const [numTransferencia, setNumTransferencia] = useState(cliente?.num_transferencia ?? '');
   const [entidad, setEntidad] = useState<Entidad | ''>(cliente?.entidad_bancaria ?? '');
+  const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(cliente?.comprobante_enganche_url ?? null);
+  const [uploadingCompro, setUploadingCompro] = useState(false);
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { showAlert, DialogJSX: ClienteDialogJSX } = useDialog();
+
+  const tieneEnganche = engancheNum > 0;
+
+  const { startUpload } = useUploadThing('comprobantePago', {
+    onUploadBegin: () => setUploadingCompro(true),
+    onClientUploadComplete: (res) => {
+      setUploadingCompro(false);
+      if (res?.[0]) setComprobanteUrl(res[0].ufsUrl);
+    },
+    onUploadError: () => {
+      setUploadingCompro(false);
+      showAlert('Error al subir el archivo. Verifica que sea PDF o imagen y menor a 8 MB.');
+    },
+  });
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) startUpload([file]);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -310,14 +562,17 @@ function ClienteModal({
         telefono: telefono || null,
         descripcion_lote: descLote || null,
         precio_neto: Number(precioNeto),
-        enganche: Number(enganche),
-        num_cuotas: Number(numCuotas),
+        enganche: enganche === '' ? 0 : Number(enganche),
+        tasa_anual: tasaAnualPct ? Number(tasaAnualPct) / 100 : 0,
+        num_cuotas: cuotasNum,
         valor_cuota: Number(valorCuota),
         cuota_inicio: Number(cuotaInicio) || 1,
         fecha_deposito: fechaDeposito,
-        num_transferencia: numTransferencia || null,
-        metodo_pago: metodo || null,
-        entidad_bancaria: entidad || null,
+        // Solo enviar campos de pago del enganche si hay enganche
+        comprobante_enganche_url: tieneEnganche ? (comprobanteUrl ?? null) : null,
+        num_transferencia: tieneEnganche ? (numTransferencia || null) : null,
+        metodo_pago: tieneEnganche ? (metodo || null) : null,
+        entidad_bancaria: tieneEnganche ? (entidad || null) : null,
       };
       if (cliente) {
         await api.clientes.update(cliente.id, body);
@@ -379,80 +634,155 @@ function ClienteModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Precio Neto (Q) *</label>
-              <input type="number" step="0.01" value={precioNeto} onChange={e => setPrecioNeto(e.target.value)} required placeholder="0.00"
+              <input type="number" step="0.01" value={precioNeto} onChange={e => setPrecioNeto(e.target.value)} onWheel={e => e.currentTarget.blur()} required placeholder="0.00"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Enganche (Q) *</label>
-              <input type="number" step="0.01" value={enganche} onChange={e => setEnganche(e.target.value)} required placeholder="0.00"
+              <label className="block text-xs font-medium text-gray-600 mb-1">Enganche (Q)</label>
+              <input type="number" step="0.01" min="0" value={enganche} onChange={e => setEnganche(e.target.value)} onWheel={e => e.currentTarget.blur()} placeholder="0.00"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+              <p className="text-xs text-gray-400 mt-1">Dejar vacío o 0 si no hay enganche</p>
             </div>
           </div>
 
-          {/* Cuotas */}
+          {/* Tasa anual + Plazo en años */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Número de Cuotas *</label>
-              <input type="number" min="1" value={numCuotas} onChange={e => setNumCuotas(e.target.value)} required placeholder="Ej. 96"
+              <label className="block text-xs font-medium text-gray-600 mb-1">Tasa Anual de Interés (%)</label>
+              <input type="number" step="0.01" min="0" value={tasaAnualPct} onChange={e => setTasaAnualPct(e.target.value)} onWheel={e => e.currentTarget.blur()} placeholder="Ej. 10"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+              <p className="text-xs text-gray-400 mt-1">Dejar vacío o 0 para venta sin intereses</p>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Valor por Cuota (Q) *</label>
-              <input type="number" step="0.01" value={valorCuota} onChange={e => setValorCuota(e.target.value)} required placeholder="0.00"
+              <label className="block text-xs font-medium text-gray-600 mb-1">Plazo (años) *</label>
+              <input type="number" min="1" step="1" value={plazoAnios} onChange={e => setPlazoAnios(e.target.value)} onWheel={e => e.currentTarget.blur()} required placeholder="Ej. 5"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+              <p className="text-xs text-gray-400 mt-1">
+                {cuotasNum > 0 ? `= ${cuotasNum} cuotas mensuales` : 'El sistema calculará las cuotas mensuales'}
+              </p>
             </div>
+          </div>
+
+          {/* Valor cuota */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Valor por Cuota (Q) *
+              {cuotaAuto != null && <span className="ml-2 text-[#b8922e] font-normal">(calculado automáticamente)</span>}
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={valorCuota}
+              onChange={e => setValorCuota(e.target.value)}
+              onWheel={e => e.currentTarget.blur()}
+              required
+              placeholder="0.00"
+              readOnly={cuotaAuto != null}
+              className={`w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] ${cuotaAuto != null ? 'bg-gray-50 text-gray-600' : ''}`}
+            />
           </div>
 
           {/* Cuota inicio */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Cuota de inicio</label>
-            <input type="number" min="1" value={cuotaInicio} onChange={e => setCuotaInicio(e.target.value)}
+            <input type="number" min="1" value={cuotaInicio} onChange={e => setCuotaInicio(e.target.value)} onWheel={e => e.currentTarget.blur()}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             <p className="text-xs text-gray-400 mt-1">Si el cliente ya tenía cuotas antes del sistema, indica desde cuál número empieza. Por defecto: 1</p>
           </div>
 
-          {/* Fecha depósito */}
+          {/* Fecha depósito / Fecha de inicio */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de Depósito *</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              {tieneEnganche ? 'Fecha de Depósito *' : 'Fecha de inicio del contrato *'}
+            </label>
             <input type="date" value={fechaDeposito} onChange={e => setFechaDeposito(e.target.value)} required
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
 
-          {/* Método de Pago */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Método de Pago</label>
-              <select value={metodo} onChange={e => setMetodo(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
-                <option>Transferencia</option>
-                <option>Efectivo</option>
-                <option>Depósito</option>
-                <option>Cheque</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Entidad Bancaria *</label>
-              <select value={entidad} onChange={e => setEntidad(e.target.value as Entidad | '')} required
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
-                <option value="">— Seleccionar —</option>
-                <option>Banrural</option>
-                <option>Industrial</option>
-                <option>G&T</option>
-                <option>BAC</option>
-              </select>
-            </div>
-          </div>
+          {/* Datos del pago del enganche — solo si hay enganche */}
+          {tieneEnganche && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Método de Pago</label>
+                  <select value={metodo} onChange={e => setMetodo(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
+                    <option>Transferencia</option>
+                    <option>Efectivo</option>
+                    <option>Depósito</option>
+                    <option>Cheque</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Entidad Bancaria *</label>
+                  <select value={entidad} onChange={e => setEntidad(e.target.value as Entidad | '')} required
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
+                    <option value="">— Seleccionar —</option>
+                    <option value="Banrural">Banrural</option>
+                    <option value="Industrial">Industrial</option>
+                    <option value="GT">G&T</option>
+                    <option value="BAC">BAC</option>
+                  </select>
+                </div>
+              </div>
 
-          {/* Referencia dinámica según método */}
-          {metodo !== 'Efectivo' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                {metodo === 'Cheque' ? 'Número de Referencia' : metodo === 'Depósito' ? 'Número de Boleta' : 'N° de Transferencia'}
-              </label>
-              <input type="text" value={numTransferencia} onChange={e => setNumTransferencia(e.target.value)}
-                placeholder={metodo === 'Cheque' ? 'Ej. CHQ-001234' : metodo === 'Depósito' ? 'Ej. BOL-567890' : 'Ej. 00123456'}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
-            </div>
+              {/* Referencia dinámica según método */}
+              {metodo !== 'Efectivo' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {metodo === 'Cheque' ? 'Número de Referencia' : metodo === 'Depósito' ? 'Número de Boleta' : 'N° de Transferencia'}
+                  </label>
+                  <input type="text" value={numTransferencia} onChange={e => setNumTransferencia(e.target.value)}
+                    placeholder={metodo === 'Cheque' ? 'Ej. CHQ-001234' : metodo === 'Depósito' ? 'Ej. BOL-567890' : 'Ej. 00123456'}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+                </div>
+              )}
+
+              {/* Comprobante del enganche */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Comprobante del enganche</label>
+                {comprobanteUrl ? (
+                  <div className="flex items-center gap-2 border border-green-200 bg-green-50 rounded-xl px-3 py-2.5">
+                    <FileText size={14} className="text-green-600 shrink-0" />
+                    <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-sm text-green-700 font-medium underline truncate flex-1">
+                      Ver comprobante
+                    </a>
+                    <button type="button" onClick={() => setComprobanteUrl(null)}
+                      className="text-gray-400 hover:text-red-500 text-xs shrink-0">✕</button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="cliente-comprobante-input"
+                    />
+                    <label htmlFor="cliente-comprobante-input"
+                      className="flex items-center justify-center gap-2 w-full border border-dashed border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-500 cursor-pointer hover:border-[#d4a843] hover:bg-amber-50 transition-colors">
+                      {uploadingCompro ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                          </svg>
+                          Subiendo...
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={14} />
+                          Subir imagen o PDF
+                        </>
+                      )}
+                    </label>
+                    <p className="text-xs text-gray-400 mt-1">Imagen o PDF · máx. 8 MB</p>
+                  </>
+                )}
+              </div>
+            </>
           )}
 
           <div className="flex gap-3 mt-2">
@@ -481,6 +811,7 @@ export default function ClientesPage() {
   const [modal, setModal] = useState(false);
   const [editCliente, setEditCliente] = useState<Cliente | null>(null);
   const [detalleCliente, setDetalleCliente] = useState<Cliente | null>(null);
+  const [planCliente, setPlanCliente] = useState<Cliente | null>(null);
   const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
   const { showAlert, showConfirm, DialogJSX } = useDialog();
 
@@ -612,6 +943,10 @@ export default function ClientesPage() {
                         className="p-1.5 rounded-lg text-gray-500 hover:text-blue-500 hover:bg-blue-50 transition-colors" title="Ver detalle">
                         <Eye size={14} />
                       </button>
+                      <button onClick={() => setPlanCliente(c)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-[#b8922e] hover:bg-amber-50 transition-colors" title="Plan de pagos">
+                        <TableProperties size={14} />
+                      </button>
                       <button onClick={() => openEdit(c)}
                         className="p-1.5 rounded-lg text-gray-500 hover:text-[#d4a843] hover:bg-amber-50 transition-colors"
                         style={{ display: readOnly ? 'none' : undefined }}
@@ -657,6 +992,10 @@ export default function ClientesPage() {
                   <button onClick={() => setDetalleCliente(c)}
                     className="p-1.5 rounded-lg text-gray-500 hover:text-blue-500 hover:bg-blue-50" title="Ver detalle">
                     <Eye size={14} />
+                  </button>
+                  <button onClick={() => setPlanCliente(c)}
+                    className="p-1.5 rounded-lg text-gray-500 hover:text-[#b8922e] hover:bg-amber-50" title="Plan de pagos">
+                    <TableProperties size={14} />
                   </button>
                   {!readOnly && (
                     <button onClick={() => openEdit(c)}
@@ -720,6 +1059,12 @@ export default function ClientesPage() {
           cliente={detalleCliente}
           onClose={() => setDetalleCliente(null)}
           onPagoActualizado={load}
+        />
+      )}
+      {planCliente && (
+        <PlanModal
+          cliente={planCliente}
+          onClose={() => setPlanCliente(null)}
         />
       )}
       {DialogJSX}

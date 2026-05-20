@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { AlertTriangle, CheckCircle, Info, X } from 'lucide-react';
 
 type AlertType = 'error' | 'info' | 'success';
@@ -86,18 +86,18 @@ export function useDialog() {
   const [alertState, setAlertState]     = useState<AlertState | null>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
-  function showAlert(message: string, type: AlertType = 'error') {
+  const showAlert = useCallback((message: string, type: AlertType = 'error') => {
     setAlertState({ message, type });
-  }
+  }, []);
 
-  function showConfirm(
+  const showConfirm = useCallback((
     message: string,
     opts?: { description?: string; confirmLabel?: string; danger?: boolean },
-  ): Promise<boolean> {
+  ): Promise<boolean> => {
     return new Promise(resolve => {
       setConfirmState({ message, resolve, ...opts });
     });
-  }
+  }, []);
 
   const DialogJSX = (
     <>

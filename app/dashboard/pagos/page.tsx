@@ -29,6 +29,7 @@ interface Pago {
   fecha_pago: string | null;
   metodo_pago: string | null;
   referencia: string | null;
+  descripcion: string | null;
   comprobante_url: string | null;
   contrato_id: number | null;
   propietario_id: number | null;
@@ -138,6 +139,7 @@ function PagoModal({
   const [monto, setMonto] = useState(String(pago?.monto ?? ''));
   const [metodo, setMetodo] = useState(pago?.metodo_pago ?? 'Transferencia');
   const [referencia, setReferencia] = useState(pago?.referencia ?? '');
+  const [descripcion, setDescripcion] = useState(pago?.descripcion ?? '');
   const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(pago?.comprobante_url ?? null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -188,6 +190,7 @@ function PagoModal({
         fecha_pago: fechaPago,
         metodo_pago: metodo,
         referencia: referencia || null,
+        descripcion: descripcion || null,
         comprobante_url: comprobanteUrl ?? null,
         estado: 'pagado',
       };
@@ -274,6 +277,15 @@ function PagoModal({
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             </div>
           )}
+
+          {/* Descripción */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+            <input type="text" value={descripcion} onChange={e => setDescripcion(e.target.value)}
+              placeholder="Ej. Pago de cuota 3 — abono extra"
+              maxLength={500}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+          </div>
 
           {/* Comprobante de pago */}
           <div>

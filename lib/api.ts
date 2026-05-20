@@ -98,4 +98,10 @@ export const api = {
     reportes:         () => request<any>('/api/stats/reportes'),
     resumenEjecutivo: () => request<any>('/api/stats/resumen-ejecutivo'),
   },
+
+  amortizacion: {
+    simular:   (body: unknown) => request<any[]>('/api/amortizacion/simular', { method: 'POST', body: JSON.stringify(body) }),
+    getPlan:   (ventaId: number) => request<any>(`/api/amortizacion/venta/${ventaId}`),
+    regenerar: (ventaId: number) => request<any>(`/api/amortizacion/venta/${ventaId}/regenerar`, { method: 'POST' }),
+  },
 };
