@@ -56,7 +56,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-1/2 relative bg-gray-900 items-center justify-center overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('/fondohero.png')" }}
+          style={{ backgroundImage: "url('/heroficial.jpg')" }}
         />
         <div className="absolute inset-0 bg-black/65" />
         <div className="relative z-10 max-w-sm text-center px-8">
