@@ -10,6 +10,8 @@ export interface AuthUser {
   rol: Rol;
   empresa_nombre: string;
   plan: Plan;
+  /** CSV de paths permitidos en el sidebar. null = todas las del plan. */
+  secciones_permitidas: string | null;
 }
 
 export interface NavItem {

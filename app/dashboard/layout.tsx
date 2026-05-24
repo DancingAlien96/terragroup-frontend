@@ -196,7 +196,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Nav */}
         <nav className="flex-1 py-4 px-2 flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => {
+          {(() => {
+            // Filtrado adicional por permisos específicos del usuario (definidos por el admin).
+            // Si secciones_permitidas es null/vacío, no filtra (muestra todo lo del plan).
+            const seccionesArr = (user.secciones_permitidas ?? '').split(',').map(s => s.trim()).filter(Boolean);
+            const visibleItems = seccionesArr.length === 0
+              ? NAV_ITEMS
+              : NAV_ITEMS.filter(i => seccionesArr.includes(i.href));
+            return visibleItems;
+          })().map((item) => {
             const allowed = planAllows(user.plan, item.minPlan);
             const active = pathname === item.href;
 

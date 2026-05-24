@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
-import { Eye, X, TableProperties, RefreshCw, Upload, FileText } from 'lucide-react';
+import { Eye, X, TableProperties, RefreshCw, Upload, FileText, CheckCircle2 } from 'lucide-react';
 import { isReadOnly } from '@/lib/auth';
 import { useDialog } from '@/lib/useDialog';
 import { useUploadThing } from '@/lib/uploadthing';
@@ -53,6 +53,12 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
   const [loading, setLoading] = useState(true);
   const [regenerando, setRegenerando] = useState(false);
   const [plan, setPlan] = useState<any[]>([]);
+  const [resumen, setResumen] = useState<{ totalAbonosExtra: number; cuotasCubiertas: number }>({ totalAbonosExtra: 0, cuotasCubiertas: 0 });
+  const [liquidando, setLiquidando] = useState(false);
+  const [showLiquidar, setShowLiquidar] = useState(false);
+  const [liqMetodo, setLiqMetodo] = useState('Transferencia');
+  const [liqReferencia, setLiqReferencia] = useState('');
+  const [liqDescripcion, setLiqDescripcion] = useState('Liquidación anticipada');
   const { showAlert, showConfirm, DialogJSX: PlanDialogJSX } = useDialog();
 
   const cargar = useCallback(async () => {
@@ -60,15 +66,39 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
     try {
       const data = await api.amortizacion.getPlan(cliente.id);
       setPlan(data.plan ?? []);
+      setResumen(data.resumen ?? { totalAbonosExtra: 0, cuotasCubiertas: 0 });
     } catch (e: any) {
       showAlert(e.message ?? 'Error al cargar el plan');
       setPlan([]);
+      setResumen({ totalAbonosExtra: 0, cuotasCubiertas: 0 });
     } finally {
       setLoading(false);
     }
   }, [cliente.id, showAlert]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Cuotas que aún no tienen pago y no están cubiertas por abonos
+  const cuotasPendientes = plan.filter(c => !c.pago && !c.estaCubierta);
+  const saldoPorLiquidar = cuotasPendientes.reduce((s, c) => s + Number(c.cuotaReferencial), 0);
+
+  async function handleLiquidar() {
+    setLiquidando(true);
+    try {
+      const res = await api.amortizacion.liquidar(cliente.id, {
+        metodo_pago: liqMetodo,
+        referencia:  liqReferencia || null,
+        descripcion: liqDescripcion || 'Liquidación anticipada',
+      });
+      showAlert(`${res.creados} cuotas liquidadas por ${fmt(Number(res.totalLiquidado))}`, 'success');
+      setShowLiquidar(false);
+      await cargar();
+    } catch (e: any) {
+      showAlert(e.message ?? 'Error al liquidar');
+    } finally {
+      setLiquidando(false);
+    }
+  }
 
   async function handleRegenerar() {
     if (!await showConfirm('¿Regenerar el plan?', {
@@ -144,6 +174,7 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
                   <th className="text-right py-2 px-2 font-medium">Cuota Mensual</th>
                   <th className="text-right py-2 px-2 font-medium">Capital</th>
                   <th className="text-right py-2 px-2 font-medium">Intereses</th>
+                  <th className="text-right py-2 px-2 font-medium">Extra</th>
                   <th className="text-right py-2 px-2 font-medium">Saldo</th>
                   <th className="text-center py-2 px-2 font-medium">Estado</th>
                 </tr>
@@ -165,7 +196,10 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
 
                   let label = estado ?? 'sin pago';
                   let colorEstado = 'bg-gray-50 text-gray-400';
-                  if (fechaPago) {
+                  if (c.estaCubierta) {
+                    label = 'cubierta por abono';
+                    colorEstado = 'bg-blue-50 text-blue-700';
+                  } else if (fechaPago) {
                     if (pagadoTarde) {
                       label = `pagado · ${diasAtraso}d tarde`;
                       colorEstado = 'bg-yellow-50 text-yellow-800';
@@ -180,6 +214,9 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
                     label = 'pendiente';
                     colorEstado = 'bg-amber-50 text-amber-700';
                   }
+
+                  const extra        = Number(c.abonoExtra ?? 0);
+                  const saldoMostrar = Number(c.saldoAjustado ?? c.saldoReferencial);
                   return (
                     <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                       <td className="py-1.5 px-2 text-gray-600">{c.numCuota}</td>
@@ -190,7 +227,8 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
                       <td className="py-1.5 px-2 text-right font-mono text-gray-800">{fmt(Number(c.cuotaReferencial))}</td>
                       <td className="py-1.5 px-2 text-right font-mono text-gray-600">{fmt(Number(c.capitalReferencial))}</td>
                       <td className="py-1.5 px-2 text-right font-mono text-gray-600">{fmt(Number(c.interesReferencial))}</td>
-                      <td className="py-1.5 px-2 text-right font-mono text-gray-500">{fmt(Number(c.saldoReferencial))}</td>
+                      <td className={`py-1.5 px-2 text-right font-mono ${extra > 0 ? 'text-blue-600 font-semibold' : 'text-gray-300'}`}>{extra > 0 ? fmt(extra) : '—'}</td>
+                      <td className="py-1.5 px-2 text-right font-mono text-gray-500">{fmt(saldoMostrar)}</td>
                       <td className="py-1.5 px-2 text-center">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${colorEstado}`}>
                           {label}
@@ -206,6 +244,7 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
                   <td className="py-2 px-2 text-right font-mono">{fmt(totales.cuota)}</td>
                   <td className="py-2 px-2 text-right font-mono">{fmt(totales.capital)}</td>
                   <td className="py-2 px-2 text-right font-mono">{fmt(totales.interes)}</td>
+                  <td className="py-2 px-2 text-right font-mono text-blue-600">{resumen.totalAbonosExtra > 0 ? fmt(resumen.totalAbonosExtra) : '—'}</td>
                   <td colSpan={2}></td>
                 </tr>
               </tfoot>
@@ -215,8 +254,18 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
-          <p className="text-xs text-gray-400">{plan.length} cuotas en el plan</p>
+          <p className="text-xs text-gray-400">
+            {plan.length} cuotas · {cuotasPendientes.length} pendiente{cuotasPendientes.length === 1 ? '' : 's'}
+            {cuotasPendientes.length > 0 && ` · saldo ${fmt(saldoPorLiquidar)}`}
+          </p>
           <div className="flex gap-2">
+            {cuotasPendientes.length > 0 && !readOnly && (
+              <button onClick={() => setShowLiquidar(true)}
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3 py-2 rounded-xl transition-colors">
+                <CheckCircle2 size={13} />
+                Liquidar saldo
+              </button>
+            )}
             {plan.length > 0 && !readOnly && (
               <button onClick={handleRegenerar} disabled={regenerando}
                 className="flex items-center gap-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium text-xs px-3 py-2 rounded-xl transition-colors disabled:opacity-60">
@@ -230,6 +279,58 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
             </button>
           </div>
         </div>
+
+        {/* Sub-modal: liquidación */}
+        {showLiquidar && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-gray-900">Liquidar saldo del terreno</h3>
+                <button onClick={() => setShowLiquidar(false)} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5 mb-4 text-sm">
+                <p className="text-gray-700">
+                  Se cancelarán <span className="font-bold">{cuotasPendientes.length}</span> cuotas pendientes
+                  por un total de <span className="font-bold text-emerald-700">{fmt(saldoPorLiquidar)}</span>.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Todas las cuotas restantes se marcarán como pagadas con la descripción que indiques.</p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Método de Pago</label>
+                  <select value={liqMetodo} onChange={e => setLiqMetodo(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option>Transferencia</option>
+                    <option>Efectivo</option>
+                    <option>Depósito</option>
+                    <option>Cheque</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Referencia / N° comprobante</label>
+                  <input type="text" value={liqReferencia} onChange={e => setLiqReferencia(e.target.value)} placeholder="Opcional"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+                  <input type="text" value={liqDescripcion} onChange={e => setLiqDescripcion(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-5">
+                <button type="button" onClick={() => setShowLiquidar(false)} disabled={liquidando}
+                  className="flex-1 border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50">
+                  Cancelar
+                </button>
+                <button type="button" onClick={handleLiquidar} disabled={liquidando}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-60">
+                  {liquidando ? 'Liquidando...' : 'Confirmar liquidación'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {PlanDialogJSX}
       </div>
     </div>
@@ -547,9 +648,12 @@ function ClienteModal({
     },
   });
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) startUpload([file]);
+    if (!file) return;
+    const { compressImageIfLarge } = await import('@/lib/compressImage');
+    const toUpload = await compressImageIfLarge(file);
+    startUpload([toUpload]);
   }
 
   async function handleSubmit(e: React.FormEvent) {

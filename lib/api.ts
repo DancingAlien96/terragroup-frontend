@@ -103,5 +103,6 @@ export const api = {
     simular:   (body: unknown) => request<any[]>('/api/amortizacion/simular', { method: 'POST', body: JSON.stringify(body) }),
     getPlan:   (ventaId: number) => request<any>(`/api/amortizacion/venta/${ventaId}`),
     regenerar: (ventaId: number) => request<any>(`/api/amortizacion/venta/${ventaId}/regenerar`, { method: 'POST' }),
+    liquidar:  (ventaId: number, body: unknown) => request<any>(`/api/amortizacion/venta/${ventaId}/liquidar`, { method: 'POST', body: JSON.stringify(body) }),
   },
 };

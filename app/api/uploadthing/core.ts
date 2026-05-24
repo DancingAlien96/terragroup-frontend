@@ -45,7 +45,7 @@ export const ourFileRouter = {
     }),
 
   expedienteDoc: f({
-    pdf: { maxFileSize: '16MB', maxFileCount: 1 },
+    pdf: { maxFileSize: '4MB', maxFileCount: 1 },
   })
     .middleware(async ({ req }) => {
       const user = await authFromRequest(req);

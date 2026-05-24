@@ -13,10 +13,24 @@ interface Usuario {
   username: string;
   rol: 'admin' | 'vendedor' | 'supervisor';
   activo: boolean;
+  secciones_permitidas: string | null;
   updated_at: string;
 }
 
 type ModalMode = 'crear' | 'editar';
+
+/** Catálogo de secciones del sidebar (debe coincidir con NAV_ITEMS de layout.tsx). */
+const SECCIONES = [
+  { href: '/dashboard',                label: 'Panel de Control' },
+  { href: '/dashboard/clientes',       label: 'Clientes' },
+  { href: '/dashboard/pagos',          label: 'Gestión de Pagos' },
+  { href: '/dashboard/reportes',       label: 'Reportes' },
+  { href: '/dashboard/cartera',        label: 'Cartera Vencida' },
+  { href: '/dashboard/notificaciones', label: 'Notificaciones' },
+  { href: '/dashboard/expedientes',    label: 'Expediente de Clientes' },
+  { href: '/dashboard/usuarios',       label: 'Usuarios y Roles' },
+  { href: '/dashboard/vendedores',     label: 'Vendedores y Comisiones' },
+];
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 function sugerirUsername(nombre: string): string {
@@ -42,6 +56,7 @@ function UsuarioModal({
   usernameTouched, setUsernameTouched,
   password, setPassword,
   rol, setRol,
+  secciones, setSecciones,
   saving, onClose, onGuardar,
 }: {
   mode: ModalMode; editId: number | null; meId: number | null;
@@ -51,8 +66,17 @@ function UsuarioModal({
   usernameTouched: boolean; setUsernameTouched: (v: boolean) => void;
   password: string; setPassword: (v: string) => void;
   rol: string; setRol: (v: string) => void;
+  secciones: string[]; setSecciones: (v: string[]) => void;
   saving: boolean; onClose: () => void; onGuardar: () => void;
 }) {
+  const todasMarcadas = secciones.length === SECCIONES.length;
+  function toggleSeccion(href: string) {
+    if (secciones.includes(href)) setSecciones(secciones.filter(s => s !== href));
+    else setSecciones([...secciones, href]);
+  }
+  function toggleTodas() {
+    setSecciones(todasMarcadas ? [] : SECCIONES.map(s => s.href));
+  }
   // Auto-suggest username from name while user hasn't manually edited it
   useEffect(() => {
     if (mode === 'crear' && !usernameTouched && nombre) {
@@ -129,6 +153,34 @@ function UsuarioModal({
                 <option value="vendedor">Solo lectura — no puede modificar</option>
               </select>
             </div>
+            {/* Secciones del sidebar */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Secciones visibles en el menú</label>
+                <button type="button" onClick={toggleTodas}
+                  className="text-xs text-[#b8922e] hover:underline font-medium">
+                  {todasMarcadas ? 'Quitar todas' : 'Marcar todas'}
+                </button>
+              </div>
+              <div className="border border-gray-200 rounded-lg p-3 grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
+                {SECCIONES.map(s => (
+                  <label key={s.href} className="flex items-center gap-2 cursor-pointer text-xs text-gray-700 hover:bg-gray-50 px-2 py-1 rounded">
+                    <input type="checkbox"
+                      checked={secciones.includes(s.href)}
+                      onChange={() => toggleSeccion(s.href)}
+                      className="rounded text-[#d4a843] focus:ring-[#d4a843]" />
+                    <span className="truncate">{s.label}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">
+                {secciones.length === 0
+                  ? 'Sin selección = no verá ningún módulo. Marca al menos uno.'
+                  : todasMarcadas
+                    ? 'Todas las secciones (igual al comportamiento por defecto)'
+                    : `${secciones.length} de ${SECCIONES.length} secciones visibles`}
+              </p>
+            </div>
           </div>
           <div className="flex gap-3 px-6 pb-5">
             <button type="button" onClick={onClose} disabled={saving}
@@ -166,6 +218,7 @@ export default function UsuariosPage() {
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [password, setPassword] = useState('');
   const [rol, setRol] = useState('admin');
+  const [secciones, setSecciones] = useState<string[]>(SECCIONES.map(s => s.href));
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -179,6 +232,7 @@ export default function UsuariosPage() {
   function openCrear() {
     setModalMode('crear'); setEditId(null);
     setNombre(''); setEmail(''); setUsername(''); setUsernameTouched(false); setPassword(''); setRol('admin');
+    setSecciones(SECCIONES.map(s => s.href));   // por defecto: todas
     setShowModal(true);
   }
 
@@ -188,18 +242,23 @@ export default function UsuariosPage() {
     setUsernameTouched(true);
     setPassword('');
     setRol(u.rol);
+    // null/empty en BD = todas las secciones
+    const cur = (u.secciones_permitidas ?? '').split(',').map(s => s.trim()).filter(Boolean);
+    setSecciones(cur.length === 0 ? SECCIONES.map(s => s.href) : cur);
     setShowModal(true);
   }
 
   async function handleGuardar() {
     if (!nombre || !email || !username) return;
     if (modalMode === 'crear' && !password) return;
+    // Si todas están marcadas guardamos null (= comportamiento default); si no, CSV.
+    const seccionesValue = secciones.length === SECCIONES.length ? null : secciones.join(',');
     setSaving(true);
     try {
       if (modalMode === 'crear') {
-        await api.usuarios.create({ nombre, email, username, password, rol });
+        await api.usuarios.create({ nombre, email, username, password, rol, secciones_permitidas: seccionesValue });
       } else if (editId !== null) {
-        const body: any = { nombre, email, username, rol };
+        const body: any = { nombre, email, username, rol, secciones_permitidas: seccionesValue };
         if (password) body.password = password;
         await api.usuarios.update(editId, body);
       }
@@ -389,6 +448,7 @@ export default function UsuariosPage() {
             usernameTouched={usernameTouched} setUsernameTouched={setUsernameTouched}
             password={password} setPassword={setPassword}
             rol={rol} setRol={setRol}
+            secciones={secciones} setSecciones={setSecciones}
             saving={saving}
             onClose={() => setShowModal(false)}
             onGuardar={handleGuardar}

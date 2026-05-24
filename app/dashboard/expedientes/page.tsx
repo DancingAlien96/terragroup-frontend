@@ -29,11 +29,17 @@ function fmtDate(d: string) {
 }
 
 /* â”€â”€ UploadPanel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-function UploadPanel({ clienteId, onUploaded }: { clienteId: number; onUploaded: () => void }) {
+const MAX_DOCS_POR_CLIENTE = 3;
+const MAX_PDF_BYTES        = 4 * 1024 * 1024;       // Límite final de UploadThing
+const COMPRESS_THRESHOLD   = 4 * 1024 * 1024;       // Si el archivo pasa esto, intentar comprimir
+
+function UploadPanel({ clienteId, docsCount, onUploaded }: { clienteId: number; docsCount: number; onUploaded: () => void }) {
   const readOnly = isReadOnly();
   const [nombre, setNombre]       = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving]       = useState(false);
+  const [compressing, setCompressing] = useState(false);
+  const [compressPct, setCompressPct] = useState(0);
   const [fileReady, setFileReady] = useState<File | null>(null);
   const fileInputRef              = useRef<HTMLInputElement>(null);
   const { showAlert, DialogJSX }  = useDialog();
@@ -73,17 +79,60 @@ function UploadPanel({ clienteId, onUploaded }: { clienteId: number; onUploaded:
   }
 
   async function handleUpload() {
-    if (!fileReady || uploading || saving) return;
-    await startUpload([fileReady]);
+    if (!fileReady || uploading || saving || compressing) return;
+    let toUpload = fileReady;
+    // Si pesa más de 4 MB, comprimir antes
+    if (toUpload.size > COMPRESS_THRESHOLD) {
+      setCompressing(true);
+      setCompressPct(0);
+      try {
+        const { compressPdf } = await import('@/lib/compressPdf');
+        const compressed = await compressPdf(toUpload, { onProgress: setCompressPct });
+        if (compressed.size > MAX_PDF_BYTES) {
+          showAlert(`El PDF sigue pesando ${(compressed.size / 1024 / 1024).toFixed(1)} MB después de comprimir. Reduce calidad o número de páginas.`);
+          return;
+        }
+        toUpload = compressed;
+      } catch (e: any) {
+        showAlert(`Error al comprimir el PDF: ${e.message ?? e}`);
+        return;
+      } finally {
+        setCompressing(false);
+      }
+    }
+    await startUpload([toUpload]);
   }
 
   if (readOnly) return null;
 
-  const busy = uploading || saving;
+  const busy = uploading || saving || compressing;
+  const limiteAlcanzado = docsCount >= MAX_DOCS_POR_CLIENTE;
+  const labelBoton = compressing
+    ? `Comprimiendo… ${Math.round(compressPct)}%`
+    : uploading
+      ? 'Subiendo...'
+      : saving
+        ? 'Guardando...'
+        : 'Subir';
+
+  if (limiteAlcanzado) {
+    return (
+      <div className="border border-dashed border-gray-200 rounded-2xl bg-gray-50 p-4">
+        <p className="text-xs text-gray-500">
+          Este cliente ya tiene el máximo de <span className="font-semibold">{MAX_DOCS_POR_CLIENTE} documentos</span>.
+          Elimina alguno si necesitas subir uno nuevo.
+        </p>
+        {DialogJSX}
+      </div>
+    );
+  }
 
   return (
     <div className="border border-dashed border-[#d4a843]/60 rounded-2xl bg-amber-50/30 p-4">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Subir documento</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Subir documento</p>
+        <p className="text-[10px] text-gray-400">{docsCount}/{MAX_DOCS_POR_CLIENTE} usados · PDF máx. 4 MB</p>
+      </div>
       <div className="flex flex-col gap-3">
         <input
           type="text"
@@ -124,7 +173,7 @@ function UploadPanel({ clienteId, onUploaded }: { clienteId: number; onUploaded:
             ) : (
               <Upload size={14} />
             )}
-            {busy ? 'Subiendo...' : 'Subir'}
+            {labelBoton}
           </button>
         </div>
       </div>
@@ -305,6 +354,7 @@ export default function ExpedientesPage() {
               <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
                 <UploadPanel
                   clienteId={clienteSel.id}
+                  docsCount={docs.length}
                   onUploaded={() => cargarDocs(clienteSel.id)}
                 />
 

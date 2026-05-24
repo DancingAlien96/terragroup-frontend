@@ -177,27 +177,59 @@ function PagoModal({
     }
   }, [clienteSel, pago]);
 
+  // Saldo pendiente del cliente seleccionado (consultado al plan de amortización)
+  const [saldoPendiente, setSaldoPendiente] = useState<{ total: number; cuotas: number } | null>(null);
+  useEffect(() => {
+    if (!clienteSel || pago) { setSaldoPendiente(null); return; }
+    let cancelled = false;
+    api.amortizacion.getPlan(clienteSel.id)
+      .then((data) => {
+        if (cancelled) return;
+        const pendientes = (data.plan ?? []).filter((c: any) => !c.pago && !c.estaCubierta);
+        const total = pendientes.reduce((s: number, c: any) => s + Number(c.cuotaReferencial), 0);
+        setSaldoPendiente({ total, cuotas: pendientes.length });
+      })
+      .catch(() => setSaldoPendiente(null));
+    return () => { cancelled = true; };
+  }, [clienteSel, pago]);
+
+  // Detección: si monto >= saldo pendiente total → ofrecer liquidar
+  const montoNum = Number(monto);
+  const sugerirLiquidar = !pago && saldoPendiente != null && saldoPendiente.cuotas > 1
+    && montoNum > 0 && montoNum >= saldoPendiente.total;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      const body = {
-        cliente_id: clienteSel?.id ?? null,
-        contrato_id: pago?.contrato_id ?? null,
-        propietario_id: pago?.propietario_id ?? null,
-        monto: Number(monto),
-        fecha_vencimiento: fechaPago,
-        fecha_pago: fechaPago,
-        metodo_pago: metodo,
-        referencia: referencia || null,
-        descripcion: descripcion || null,
-        comprobante_url: comprobanteUrl ?? null,
-        estado: 'pagado',
-      };
-      if (pago) {
-        await api.pagos.update(pago.id, body);
+      // Si el monto cubre el saldo total y hay > 1 cuota pendiente, ejecutar liquidación
+      if (sugerirLiquidar && clienteSel) {
+        await api.amortizacion.liquidar(clienteSel.id, {
+          metodo_pago:     metodo,
+          referencia:      referencia || null,
+          descripcion:     descripcion || 'Liquidación anticipada',
+          comprobante_url: comprobanteUrl ?? null,
+          fecha_pago:      fechaPago,
+        });
       } else {
-        await api.pagos.create(body);
+        const body = {
+          cliente_id: clienteSel?.id ?? null,
+          contrato_id: pago?.contrato_id ?? null,
+          propietario_id: pago?.propietario_id ?? null,
+          monto: Number(monto),
+          fecha_vencimiento: fechaPago,
+          fecha_pago: fechaPago,
+          metodo_pago: metodo,
+          referencia: referencia || null,
+          descripcion: descripcion || null,
+          comprobante_url: comprobanteUrl ?? null,
+          estado: 'pagado',
+        };
+        if (pago) {
+          await api.pagos.update(pago.id, body);
+        } else {
+          await api.pagos.create(body);
+        }
       }
       onSaved();
       onClose();
@@ -252,8 +284,13 @@ function PagoModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Monto (Q) *</label>
-              <input type="number" step="0.01" value={monto} onChange={e => setMonto(e.target.value)} placeholder="0.00" required
+              <input type="number" step="0.01" value={monto} onChange={e => setMonto(e.target.value)} onWheel={e => e.currentTarget.blur()} placeholder="0.00" required
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+              {clienteSel && saldoPendiente && saldoPendiente.cuotas > 0 && !pago && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Saldo pendiente: <span className="font-mono text-gray-700">{fmt(saldoPendiente.total)}</span> · {saldoPendiente.cuotas} cuota{saldoPendiente.cuotas === 1 ? '' : 's'}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Método de Pago</label>
@@ -311,7 +348,11 @@ function PagoModal({
                   className="hidden"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
-                    if (file) await startUpload([file]);
+                    if (file) {
+                      const { compressImageIfLarge } = await import('@/lib/compressImage');
+                      const toUpload = await compressImageIfLarge(file);
+                      await startUpload([toUpload]);
+                    }
                     e.target.value = '';
                   }}
                 />
@@ -344,14 +385,26 @@ function PagoModal({
             )}
           </div>
 
+          {sugerirLiquidar && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 text-sm text-emerald-900">
+              <p className="font-semibold">Se detectó liquidación anticipada</p>
+              <p className="text-xs text-emerald-700 mt-1">
+                El monto cubre las {saldoPendiente?.cuotas} cuotas pendientes ({fmt(saldoPendiente?.total ?? 0)}).
+                Al guardar, todas las cuotas restantes se marcarán como pagadas.
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-3 mt-2">
             <button type="button" onClick={onClose} disabled={saving}
               className="flex-1 border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50">
               Cancelar
             </button>
             <button type="submit" disabled={saving}
-              className="flex-1 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-60">
-              {saving ? 'Guardando...' : 'Guardar Pago'}
+              className={`flex-1 text-white font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-60 ${
+                sugerirLiquidar ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#d4a843] hover:bg-[#b8922e]'
+              }`}>
+              {saving ? 'Guardando...' : (sugerirLiquidar ? 'Liquidar terreno' : 'Guardar Pago')}
             </button>
           </div>
         </form>
