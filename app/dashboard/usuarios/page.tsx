@@ -86,14 +86,14 @@ function UsuarioModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" role="dialog" aria-modal="true">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[92vh] flex flex-col" role="dialog" aria-modal="true">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h3 className="text-base font-bold text-[#1a1a1a]">{mode === 'crear' ? 'Nuevo Usuario' : 'Editar Usuario'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
         {/* autocomplete="off" prevents browser autofill on the form */}
-        <form autoComplete="off" onSubmit={e => { e.preventDefault(); onGuardar(); }}>
-          <div className="px-6 py-5 flex flex-col gap-4">
+        <form autoComplete="off" onSubmit={e => { e.preventDefault(); onGuardar(); }} className="flex flex-col flex-1 min-h-0">
+          <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto flex-1">
             {/* Nombre */}
             <div>
               <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">Nombre completo</label>
@@ -182,7 +182,7 @@ function UsuarioModal({
               </p>
             </div>
           </div>
-          <div className="flex gap-3 px-6 pb-5">
+          <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0 bg-white rounded-b-2xl">
             <button type="button" onClick={onClose} disabled={saving}
               className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50">
               Cancelar

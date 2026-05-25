@@ -363,7 +363,9 @@ function DetalleModal({ cliente, onClose, onPagoActualizado }: {
 
   const pagados   = pagos.filter((p: any) => p.estado === 'pagado');
   const totalPagado   = pagados.reduce((s: number, p: any) => s + Number(p.monto), 0);
-  const saldoPendiente = Math.max(0, (cliente.precio_neto - cliente.enganche) - totalPagado);
+  // Saldo del financiamiento = (cuotas × valor cuota) - cuotas ya pagadas.
+  // Si hay intereses, valorCuota los incluye, por eso no usamos precio_neto.
+  const saldoPendiente = Math.max(0, (cliente.num_cuotas * cliente.valor_cuota) - totalPagado);
 
   async function marcarPagado(p: any, datos: { monto: number; fecha_pago: string; metodo_pago: string; referencia: string }) {
     setSaving(true);
@@ -996,42 +998,37 @@ export default function ClientesPage() {
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Comprador</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Lote</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600">Precio Neto</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600">Enganche</th>
                 <th className="text-center px-4 py-3 font-semibold text-gray-600">Cuotas</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-600">Valor/Cuota</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-600">Entidad</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600 min-w-[160px]">Avance de pago</th>
                 <th className="text-center px-4 py-3 font-semibold text-gray-600">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="text-center py-10 text-gray-400">Cargando...</td></tr>
+                <tr><td colSpan={6} className="text-center py-10 text-gray-400">Cargando...</td></tr>
               ) : filtrados.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-10 text-gray-400">
+                <tr><td colSpan={6} className="text-center py-10 text-gray-400">
                   {busqueda ? 'Sin resultados para la búsqueda' : 'No hay clientes registrados'}
                 </td></tr>
               ) : filtrados.map(c => (
                 <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-900">{c.nombre_comprador}</td>
                   <td className="px-4 py-3 text-gray-600 max-w-[180px] truncate">{c.descripcion_lote ?? '—'}</td>
-                  <td className="px-4 py-3 text-right font-mono text-gray-800">{fmt(c.precio_neto)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-gray-800">{fmt(c.enganche)}</td>
                   <td className="px-4 py-3 text-center text-gray-700">{c.num_cuotas}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-800">{fmt(c.valor_cuota)}</td>
-                  <td className="px-4 py-3 text-gray-600">{c.entidad_bancaria ?? '—'}</td>
                   <td className="px-4 py-3">
                     {(() => {
                       const cuotasPagadas = pagosMap[c.id] ?? 0;
                       const totalAbonado  = c.enganche + cuotasPagadas;
-                      const saldo         = Math.max(0, c.precio_neto - totalAbonado);
-                      const pct           = Math.min(100, c.precio_neto > 0 ? (totalAbonado / c.precio_neto) * 100 : 0);
+                      const totalContrato = c.enganche + (c.num_cuotas * c.valor_cuota);
+                      const saldo         = Math.max(0, totalContrato - totalAbonado);
+                      const pct           = Math.min(100, totalContrato > 0 ? (totalAbonado / totalContrato) * 100 : 0);
                       return (
                         <div className="flex flex-col gap-1 min-w-[150px]">
                           <div className="flex justify-between text-xs">
                             <span className="text-green-600 font-medium">{fmt(totalAbonado)}</span>
-                            <span className="text-gray-400">{fmt(c.precio_neto)}</span>
+                            <span className="text-gray-400">{fmt(totalContrato)}</span>
                           </div>
                           <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div className="h-full bg-green-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -1131,8 +1128,9 @@ export default function ClientesPage() {
               {(() => {
                 const cuotasPagadas = pagosMap[c.id] ?? 0;
                 const totalAbonado  = c.enganche + cuotasPagadas;
-                const saldo         = Math.max(0, c.precio_neto - totalAbonado);
-                const pct           = Math.min(100, c.precio_neto > 0 ? (totalAbonado / c.precio_neto) * 100 : 0);
+                const totalContrato = c.enganche + (c.num_cuotas * c.valor_cuota);
+                const saldo         = Math.max(0, totalContrato - totalAbonado);
+                const pct           = Math.min(100, totalContrato > 0 ? (totalAbonado / totalContrato) * 100 : 0);
                 return (
                   <div className="flex flex-col gap-1 mt-1">
                     <div className="flex justify-between text-xs">
