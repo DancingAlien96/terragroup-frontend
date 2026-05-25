@@ -372,7 +372,16 @@ export default function ReportesPage() {
               <table style="border-collapse:collapse;width:100%"><thead><tr>${thRow}</tr></thead><tbody>${tableRows}</tbody></table>`;
           }
           win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
-            <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;padding:24px;background:#f3f4f6;margin:0}@media print{body{background:white;padding:0}button{display:none}}</style>
+            <style>
+              /* Forzar colores exactos al imprimir/guardar PDF — sin esto Chrome/Edge omiten fondos y atenúan */
+              *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
+              body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;padding:24px;background:#f3f4f6;margin:0}
+              @page{margin:14mm}
+              @media print{
+                body{background:white;padding:0}
+                button{display:none}
+              }
+            </style>
             </head><body>
             ${bodyHTML}
             <div style="text-align:center;margin-top:20px"><button onclick="window.print()" style="padding:10px 24px;background:#d4a843;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">Imprimir / Guardar PDF</button></div>
