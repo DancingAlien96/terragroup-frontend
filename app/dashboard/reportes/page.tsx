@@ -200,6 +200,152 @@ export default function ReportesPage() {
     };
   }
 
+  function buildResumenHTML(r: any): string {
+    const trDeudores = (r.top_deudores ?? []).length === 0
+      ? `<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:8px">Sin deudores</td></tr>`
+      : r.top_deudores.map((d: any) => {
+          const colorDias = d.dias_mora > 90 ? '#dc2626' : d.dias_mora > 30 ? '#b8922e' : '#d4a843';
+          return `<tr>
+            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6">${d.nombre}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;color:#6b7280">${d.lote}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right">${d.cuotas_vencidas}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:#dc2626">${fmt(d.monto_vencido)}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:${colorDias}">${d.dias_mora}</td>
+          </tr>`;
+        }).join('');
+
+    const trVendedores = (r.top_vendedores ?? []).length === 0
+      ? `<tr><td colspan="3" style="text-align:center;color:#9ca3af;padding:8px">Sin comisiones</td></tr>`
+      : r.top_vendedores.map((v: any) => `<tr>
+          <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6">${v.nombre}</td>
+          <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right">${v.ventas}</td>
+          <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:#d4a843">${fmt(v.total_comisiones)}</td>
+        </tr>`).join('');
+
+    const tendenciaHTML = !r.tendencia || r.tendencia.length === 0 ? '' : (() => {
+      const max = Math.max(...r.tendencia.map((t: any) => Number(t.cobrado)), 1);
+      const bars = r.tendencia.map((t: any) => {
+        const px = Math.round((Number(t.cobrado) / max) * 60);
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+          <div style="font-size:8px;font-weight:600;color:#6b7280">${fmt(Number(t.cobrado))}</div>
+          <div style="width:100%;background:#d4a843;border-radius:2px 2px 0 0;height:${px}px"></div>
+          <span style="font-size:8px;color:#9ca3af">${t.mes}</span>
+        </div>`;
+      }).join('');
+      return `<div style="margin-top:14px">
+        <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 6px">Tendencia de Cobranza \u00B7 \u00FAltimos ${r.tendencia.length} mes(es)</h4>
+        <div style="display:flex;align-items:flex-end;gap:6px;height:80px">${bars}</div>
+      </div>`;
+    })();
+
+    return `
+      <div style="max-width:760px;margin:0 auto;background:white;padding:28px;color:#374151;font-size:11px;line-height:1.45;font-family:-apple-system,Segoe UI,Roboto,sans-serif">
+
+        <!-- Header -->
+        <div style="border-bottom:1px solid #e5e7eb;padding-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+          <div>
+            <p style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#b8922e;font-weight:700;margin:0">Resumen Ejecutivo</p>
+            <p style="font-size:18px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${r.empresa?.nombre ?? '\u2014'}</p>
+            <p style="font-size:10px;color:#9ca3af;margin:2px 0 0;text-transform:capitalize">
+              Plan ${r.empresa?.plan ?? '\u2014'}${r.empresa?.fecha_vence ? ' \u00B7 vence ' + fmtDate(r.empresa.fecha_vence) : ''}
+            </p>
+          </div>
+          <p style="font-size:9px;color:#9ca3af;margin:0;white-space:nowrap">
+            ${new Date(r.generado_en).toLocaleDateString('es-GT', { dateStyle: 'medium' })}
+          </p>
+        </div>
+
+        <!-- KPIs -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+          <div style="border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px">
+            <p style="font-size:9px;text-transform:uppercase;color:#6b7280;margin:0">Cobrado</p>
+            <p style="font-size:13px;font-weight:700;color:#b8922e;margin:2px 0 0">${fmt(r.kpi.total_cobrado)}</p>
+          </div>
+          <div style="border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px">
+            <p style="font-size:9px;text-transform:uppercase;color:#6b7280;margin:0">Pendiente</p>
+            <p style="font-size:13px;font-weight:700;color:#374151;margin:2px 0 0">${fmt(r.kpi.total_pendiente)}</p>
+          </div>
+          <div style="border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px">
+            <p style="font-size:9px;text-transform:uppercase;color:#6b7280;margin:0">Vencido</p>
+            <p style="font-size:13px;font-weight:700;color:#dc2626;margin:2px 0 0">${fmt(r.kpi.total_vencido)}</p>
+          </div>
+          <div style="border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px">
+            <p style="font-size:9px;text-transform:uppercase;color:#6b7280;margin:0">Tasa</p>
+            <p style="font-size:13px;font-weight:700;color:#b8922e;margin:2px 0 0">${r.kpi.tasa_cobranza}%</p>
+          </div>
+        </div>
+
+        <!-- Cartera + Lotes -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+          <div>
+            <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 6px">Cartera</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+              <div style="background:#f9fafb;border-radius:4px;padding:6px 8px">
+                <p style="font-size:9px;color:#6b7280;margin:0">Clientes</p>
+                <p style="font-size:13px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${r.cartera.clientes_totales}</p>
+              </div>
+              <div style="background:#f9fafb;border-radius:4px;padding:6px 8px">
+                <p style="font-size:9px;color:#6b7280;margin:0">En mora</p>
+                <p style="font-size:13px;font-weight:700;color:#dc2626;margin:2px 0 0">${r.cartera.clientes_en_mora}</p>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;text-align:center">
+              <div style="background:#f9fafb;border-radius:4px;padding:4px"><p style="font-size:12px;font-weight:700;color:#dc2626;margin:0">${r.cartera.mora_grave}</p><p style="font-size:8px;color:#6b7280;text-transform:uppercase;margin:0">Grave</p></div>
+              <div style="background:#f9fafb;border-radius:4px;padding:4px"><p style="font-size:12px;font-weight:700;color:#b8922e;margin:0">${r.cartera.mora_media}</p><p style="font-size:8px;color:#6b7280;text-transform:uppercase;margin:0">Media</p></div>
+              <div style="background:#f9fafb;border-radius:4px;padding:4px"><p style="font-size:12px;font-weight:700;color:#d4a843;margin:0">${r.cartera.mora_temprana}</p><p style="font-size:8px;color:#6b7280;text-transform:uppercase;margin:0">Temprana</p></div>
+            </div>
+            <p style="font-size:9px;color:#6b7280;text-align:center;margin:6px 0 0">Total vencido: <strong style="color:#dc2626">${fmt(r.cartera.total_vencido)}</strong></p>
+          </div>
+
+          <div>
+            <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 6px">Inventario de Lotes</h4>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">
+              <div style="background:#f9fafb;border-radius:4px;padding:8px"><p style="font-size:9px;color:#6b7280;margin:0">Disp.</p><p style="font-size:13px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${r.lotes.disponible}</p></div>
+              <div style="background:#f9fafb;border-radius:4px;padding:8px"><p style="font-size:9px;color:#6b7280;margin:0">Vend.</p><p style="font-size:13px;font-weight:700;color:#b8922e;margin:2px 0 0">${r.lotes.vendido}</p></div>
+              <div style="background:#f9fafb;border-radius:4px;padding:8px"><p style="font-size:9px;color:#6b7280;margin:0">Reserv.</p><p style="font-size:13px;font-weight:700;color:#d4a843;margin:2px 0 0">${r.lotes.reservado}</p></div>
+            </div>
+            <p style="font-size:9px;color:#6b7280;text-align:center;margin:6px 0 0">Total cat\u00E1logo: <strong style="color:#1a1a1a">${r.lotes.total}</strong></p>
+          </div>
+        </div>
+
+        <!-- Top deudores -->
+        <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 6px">Top 5 Deudores</h4>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+          <thead>
+            <tr style="border-bottom:1px solid #e5e7eb;font-size:9px;color:#6b7280;text-transform:uppercase">
+              <th style="text-align:left;padding:4px 6px;font-weight:500">Cliente</th>
+              <th style="text-align:left;padding:4px 6px;font-weight:500">Lote</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:500">Cuotas</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:500">Vencido</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:500">D\u00EDas</th>
+            </tr>
+          </thead>
+          <tbody>${trDeudores}</tbody>
+        </table>
+
+        <!-- Top vendedores -->
+        <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 6px">Top 5 Vendedores</h4>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid #e5e7eb;font-size:9px;color:#6b7280;text-transform:uppercase">
+              <th style="text-align:left;padding:4px 6px;font-weight:500">Vendedor</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:500">Ventas</th>
+              <th style="text-align:right;padding:4px 6px;font-weight:500">Comisiones</th>
+            </tr>
+          </thead>
+          <tbody>${trVendedores}</tbody>
+        </table>
+
+        ${tendenciaHTML}
+
+        <p style="font-size:8px;color:#9ca3af;text-align:center;margin-top:18px;padding-top:8px;border-top:1px solid #f3f4f6">
+          Generado el ${new Date(r.generado_en).toLocaleString('es-GT', { dateStyle: 'long', timeStyle: 'short' })}
+        </p>
+      </div>
+    `;
+  }
+
   function handleGenerar() {
     setGenerando(true);
     setGenerado(false);
@@ -212,17 +358,24 @@ export default function ReportesPage() {
         const html = `<html><head><meta charset="UTF-8"></head><body><h2>${title}</h2>${toExcelHTML(headers, rows)}</body></html>`;
         downloadBlob(new Blob([html], { type: 'application/vnd.ms-excel' }), `${title}.xls`);
       } else {
-        const thRow = headers.map(h => `<th style="border:1px solid #ccc;padding:6px 10px;background:#f5f5f5;text-align:left">${h}</th>`).join('');
-        const tableRows = rows.map(r => `<tr>${r.map(c => `<td style="border:1px solid #ccc;padding:6px 10px">${c}</td>`).join('')}</tr>`).join('');
+        // PDF: caso `general` usa el layout de vista previa; resto usa la tabla simple
         const win = window.open('', '_blank');
         if (win) {
+          let bodyHTML: string;
+          if (tipo === 'general' && resumen) {
+            bodyHTML = buildResumenHTML(resumen);
+          } else {
+            const thRow = headers.map(h => `<th style="border:1px solid #e5e7eb;padding:6px 10px;background:#f9fafb;text-align:left;color:#374151">${h}</th>`).join('');
+            const tableRows = rows.map(r => `<tr>${r.map(c => `<td style="border:1px solid #e5e7eb;padding:6px 10px;color:#374151">${c}</td>`).join('')}</tr>`).join('');
+            bodyHTML = `<h2 style="margin-bottom:4px;color:#1a1a1a">${title}</h2>
+              <p style="color:#888;font-size:12px;margin-bottom:16px">Generado: ${new Date().toLocaleDateString('es-GT')}</p>
+              <table style="border-collapse:collapse;width:100%"><thead><tr>${thRow}</tr></thead><tbody>${tableRows}</tbody></table>`;
+          }
           win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
-            <style>body{font-family:sans-serif;padding:24px;color:#1a1a1a}h2{margin-bottom:4px}p{color:#888;font-size:12px;margin-bottom:16px}table{border-collapse:collapse;width:100%}@media print{button{display:none}}</style>
+            <style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;padding:24px;background:#f3f4f6;margin:0}@media print{body{background:white;padding:0}button{display:none}}</style>
             </head><body>
-            <h2>${title}</h2>
-            <p>Generado: ${new Date().toLocaleDateString('es-GT')}</p>
-            <table><thead><tr>${thRow}</tr></thead><tbody>${tableRows}</tbody></table>
-            <br><button onclick="window.print()" style="margin-top:16px;padding:8px 20px;background:#d4a843;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px">Imprimir / Guardar PDF</button>
+            ${bodyHTML}
+            <div style="text-align:center;margin-top:20px"><button onclick="window.print()" style="padding:10px 24px;background:#d4a843;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">Imprimir / Guardar PDF</button></div>
             </body></html>`);
           win.document.close();
         }
@@ -331,21 +484,21 @@ export default function ReportesPage() {
 
                     {/* KPIs */}
                     <div className="grid grid-cols-4 gap-2">
-                      <div className="border border-gray-100 rounded p-1.5">
-                        <p className="text-[8px] text-gray-400 uppercase">Cobrado</p>
-                        <p className="text-[11px] font-bold text-[#d4a843] truncate">{fmt(resumen.kpi.total_cobrado)}</p>
+                      <div className="border border-gray-200 rounded p-1.5">
+                        <p className="text-[8px] text-gray-500 uppercase">Cobrado</p>
+                        <p className="text-[11px] font-bold text-[#b8922e] truncate">{fmt(resumen.kpi.total_cobrado)}</p>
                       </div>
-                      <div className="border border-gray-100 rounded p-1.5">
-                        <p className="text-[8px] text-gray-400 uppercase">Pendiente</p>
-                        <p className="text-[11px] font-bold text-orange-500 truncate">{fmt(resumen.kpi.total_pendiente)}</p>
+                      <div className="border border-gray-200 rounded p-1.5">
+                        <p className="text-[8px] text-gray-500 uppercase">Pendiente</p>
+                        <p className="text-[11px] font-bold text-gray-700 truncate">{fmt(resumen.kpi.total_pendiente)}</p>
                       </div>
-                      <div className="border border-gray-100 rounded p-1.5">
-                        <p className="text-[8px] text-gray-400 uppercase">Vencido</p>
-                        <p className="text-[11px] font-bold text-red-500 truncate">{fmt(resumen.kpi.total_vencido)}</p>
+                      <div className="border border-gray-200 rounded p-1.5">
+                        <p className="text-[8px] text-gray-500 uppercase">Vencido</p>
+                        <p className="text-[11px] font-bold text-red-600 truncate">{fmt(resumen.kpi.total_vencido)}</p>
                       </div>
-                      <div className="border border-gray-100 rounded p-1.5">
-                        <p className="text-[8px] text-gray-400 uppercase">Tasa</p>
-                        <p className="text-[11px] font-bold text-blue-600">{resumen.kpi.tasa_cobranza}%</p>
+                      <div className="border border-gray-200 rounded p-1.5">
+                        <p className="text-[8px] text-gray-500 uppercase">Tasa</p>
+                        <p className="text-[11px] font-bold text-[#b8922e]">{resumen.kpi.tasa_cobranza}%</p>
                       </div>
                     </div>
 
@@ -353,25 +506,25 @@ export default function ReportesPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <div className="flex items-center gap-1 mb-1">
-                          <AlertTriangle size={10} className="text-red-500" />
+                          <AlertTriangle size={10} className="text-[#b8922e]" />
                           <h4 className="font-semibold text-[9px] uppercase text-[#1a1a1a]">Cartera</h4>
                         </div>
                         <div className="grid grid-cols-2 gap-1.5 mb-1.5">
                           <div className="bg-gray-50 rounded px-1.5 py-1">
-                            <p className="text-[8px] text-gray-400">Clientes</p>
-                            <p className="text-[12px] font-bold">{resumen.cartera.clientes_totales}</p>
+                            <p className="text-[8px] text-gray-500">Clientes</p>
+                            <p className="text-[12px] font-bold text-[#1a1a1a]">{resumen.cartera.clientes_totales}</p>
                           </div>
-                          <div className="bg-red-50 rounded px-1.5 py-1">
-                            <p className="text-[8px] text-red-500">En mora</p>
+                          <div className="bg-gray-50 rounded px-1.5 py-1">
+                            <p className="text-[8px] text-gray-500">En mora</p>
                             <p className="text-[12px] font-bold text-red-600">{resumen.cartera.clientes_en_mora}</p>
                           </div>
                         </div>
                         <div className="grid grid-cols-3 gap-1 text-center">
-                          <div className="bg-red-50 rounded p-0.5"><p className="text-[10px] font-bold text-red-500">{resumen.cartera.mora_grave}</p><p className="text-[7px] uppercase text-red-600">Grave</p></div>
-                          <div className="bg-orange-50 rounded p-0.5"><p className="text-[10px] font-bold text-orange-500">{resumen.cartera.mora_media}</p><p className="text-[7px] uppercase text-orange-600">Media</p></div>
-                          <div className="bg-amber-50 rounded p-0.5"><p className="text-[10px] font-bold text-[#d4a843]">{resumen.cartera.mora_temprana}</p><p className="text-[7px] uppercase text-amber-700">Temp.</p></div>
+                          <div className="bg-gray-50 rounded p-0.5"><p className="text-[10px] font-bold text-red-600">{resumen.cartera.mora_grave}</p><p className="text-[7px] uppercase text-gray-500">Grave</p></div>
+                          <div className="bg-gray-50 rounded p-0.5"><p className="text-[10px] font-bold text-[#b8922e]">{resumen.cartera.mora_media}</p><p className="text-[7px] uppercase text-gray-500">Media</p></div>
+                          <div className="bg-gray-50 rounded p-0.5"><p className="text-[10px] font-bold text-[#d4a843]">{resumen.cartera.mora_temprana}</p><p className="text-[7px] uppercase text-gray-500">Temp.</p></div>
                         </div>
-                        <p className="text-[8px] text-gray-400 mt-1 text-center">Total vencido: <span className="font-bold text-red-500">{fmt(resumen.cartera.total_vencido)}</span></p>
+                        <p className="text-[8px] text-gray-500 mt-1 text-center">Total vencido: <span className="font-bold text-red-600">{fmt(resumen.cartera.total_vencido)}</span></p>
                       </div>
                       <div>
                         <div className="flex items-center gap-1 mb-1">
@@ -379,11 +532,11 @@ export default function ReportesPage() {
                           <h4 className="font-semibold text-[9px] uppercase text-[#1a1a1a]">Inventario de Lotes</h4>
                         </div>
                         <div className="grid grid-cols-3 gap-1.5 text-center">
-                          <div className="bg-green-50 rounded p-1.5"><p className="text-[8px] text-green-700">Disp.</p><p className="text-[12px] font-bold text-green-600">{resumen.lotes.disponible}</p></div>
-                          <div className="bg-blue-50 rounded p-1.5"><p className="text-[8px] text-blue-700">Vend.</p><p className="text-[12px] font-bold text-blue-600">{resumen.lotes.vendido}</p></div>
-                          <div className="bg-yellow-50 rounded p-1.5"><p className="text-[8px] text-yellow-700">Reserv.</p><p className="text-[12px] font-bold text-yellow-600">{resumen.lotes.reservado}</p></div>
+                          <div className="bg-gray-50 rounded p-1.5"><p className="text-[8px] text-gray-500">Disp.</p><p className="text-[12px] font-bold text-[#1a1a1a]">{resumen.lotes.disponible}</p></div>
+                          <div className="bg-gray-50 rounded p-1.5"><p className="text-[8px] text-gray-500">Vend.</p><p className="text-[12px] font-bold text-[#b8922e]">{resumen.lotes.vendido}</p></div>
+                          <div className="bg-gray-50 rounded p-1.5"><p className="text-[8px] text-gray-500">Reserv.</p><p className="text-[12px] font-bold text-[#d4a843]">{resumen.lotes.reservado}</p></div>
                         </div>
-                        <p className="text-[8px] text-gray-400 mt-1 text-center">Total catálogo: <span className="font-bold">{resumen.lotes.total}</span></p>
+                        <p className="text-[8px] text-gray-500 mt-1 text-center">Total catálogo: <span className="font-bold text-[#1a1a1a]">{resumen.lotes.total}</span></p>
                       </div>
                     </div>
 
@@ -408,8 +561,8 @@ export default function ReportesPage() {
                               <td className="py-1 truncate max-w-[100px]">{d.nombre}</td>
                               <td className="py-1 text-gray-500 truncate max-w-[80px]">{d.lote}</td>
                               <td className="py-1 text-right">{d.cuotas_vencidas}</td>
-                              <td className="py-1 text-right font-bold text-red-500">{fmt(d.monto_vencido)}</td>
-                              <td className={`py-1 text-right font-bold ${d.dias_mora > 90 ? 'text-red-500' : d.dias_mora > 30 ? 'text-orange-500' : 'text-[#d4a843]'}`}>{d.dias_mora}</td>
+                              <td className="py-1 text-right font-bold text-red-600">{fmt(d.monto_vencido)}</td>
+                              <td className={`py-1 text-right font-bold ${d.dias_mora > 90 ? 'text-red-600' : d.dias_mora > 30 ? 'text-[#b8922e]' : 'text-[#d4a843]'}`}>{d.dias_mora}</td>
                             </tr>
                           ))}
                         </tbody>
