@@ -534,7 +534,7 @@ function PagarCuotaModal({ pago, saving, onClose, onConfirm }: {
         <div className="flex flex-col gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Monto (Q) *</label>
-            <input type="number" step="0.01" value={monto} onChange={e => setMonto(e.target.value)} required
+            <input type="number" step="0.01" min="0.01" value={monto} onChange={e => setMonto(e.target.value)} onWheel={e => e.currentTarget.blur()} required
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
           <div>
@@ -712,7 +712,7 @@ function ClienteModal({
           {/* Nombre */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nombre del Comprador *</label>
-            <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} required placeholder="Ej. Juan Pérez"
+            <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} required maxLength={100} placeholder="Ej. Juan Pérez"
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
 
@@ -720,19 +720,19 @@ function ClienteModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Correo electrónico</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="cliente@email.com"
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} maxLength={150} placeholder="cliente@email.com"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
               <p className="text-xs text-gray-400 mt-1">Recibirá confirmaciones de pago</p>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono *</label>
-              <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="Ej. 5555-1234" required
+              <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} maxLength={20} placeholder="Ej. 5555-1234" required
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Descripción del Lote *</label>
-            <input type="text" value={descLote} onChange={e => setDescLote(e.target.value)} placeholder="Ej. Manzana A, Lote 12 — 120m²" required
+            <input type="text" value={descLote} onChange={e => setDescLote(e.target.value)} maxLength={255} placeholder="Ej. Manzana A, Lote 12 — 120m²" required
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
 
@@ -740,7 +740,7 @@ function ClienteModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Precio Neto (Q) *</label>
-              <input type="number" step="0.01" value={precioNeto} onChange={e => setPrecioNeto(e.target.value)} onWheel={e => e.currentTarget.blur()} required placeholder="0.00"
+              <input type="number" step="0.01" min="0" value={precioNeto} onChange={e => setPrecioNeto(e.target.value)} onWheel={e => e.currentTarget.blur()} required placeholder="0.00"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             </div>
             <div>
@@ -755,7 +755,7 @@ function ClienteModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Tasa Anual de Interés (%)</label>
-              <input type="number" step="0.01" min="0" value={tasaAnualPct} onChange={e => setTasaAnualPct(e.target.value)} onWheel={e => e.currentTarget.blur()} placeholder="Ej. 10"
+              <input type="number" step="0.01" min="0" max="100" value={tasaAnualPct} onChange={e => setTasaAnualPct(e.target.value)} onWheel={e => e.currentTarget.blur()} placeholder="Ej. 10"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
               <p className="text-xs text-gray-400 mt-1">Dejar vacío o 0 para venta sin intereses</p>
             </div>
@@ -778,6 +778,7 @@ function ClienteModal({
             <input
               type="number"
               step="0.01"
+              min="0"
               value={valorCuota}
               onChange={e => setValorCuota(e.target.value)}
               onWheel={e => e.currentTarget.blur()}

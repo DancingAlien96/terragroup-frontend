@@ -98,7 +98,7 @@ function UsuarioModal({
             <div>
               <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">Nombre completo</label>
               <input
-                type="text" autoComplete="off" value={nombre}
+                type="text" autoComplete="off" value={nombre} maxLength={100}
                 onChange={e => setNombre(e.target.value)}
                 placeholder="Ej. María López"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] focus:border-transparent"
@@ -108,7 +108,7 @@ function UsuarioModal({
             <div>
               <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">Email</label>
               <input
-                type="email" autoComplete="off" value={email}
+                type="email" autoComplete="off" value={email} maxLength={150}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="email@empresa.com"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] focus:border-transparent"
@@ -123,7 +123,7 @@ function UsuarioModal({
                 )}
               </label>
               <input
-                type="text" autoComplete="off" value={username}
+                type="text" autoComplete="off" value={username} maxLength={80}
                 onChange={e => { setUsernameTouched(true); setUsername(e.target.value); }}
                 placeholder="usuario_nombre"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] focus:border-transparent"
