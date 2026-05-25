@@ -250,13 +250,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        {/* Plan badge + collapse */}
+        {/* Plan badge + logout + collapse */}
         <div className="p-3 border-t border-gray-100 flex flex-col gap-2">
           {!collapsed && (
             <div className={`text-xs font-semibold px-3 py-1.5 rounded-lg text-center ${PLAN_COLOR[user.plan]}`}>
               Plan {PLAN_LABEL[user.plan]}
             </div>
           )}
+          <button
+            onClick={handleLogout}
+            title="Cerrar sesión"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors ${collapsed ? 'justify-center' : ''}`}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+            </svg>
+            {!collapsed && <span className="text-sm font-medium">Cerrar sesión</span>}
+          </button>
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
@@ -286,48 +296,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </svg>
           </button>
 
-          {/* Search */}
-          <div className="flex-1 max-w-sm relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Buscar propietario, lote..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#d4a843] focus:border-transparent"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 ml-auto">
-            {/* Bell */}
-            <button className="relative p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-              </svg>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-            </button>
-
-            {/* User */}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#1a1a1a] text-[#d4a843] flex items-center justify-center text-xs font-bold">
-                {initials}
-              </div>
-              <div className="hidden md:block text-right">
-                <p className="text-xs font-semibold text-gray-900 leading-tight">{user.nombre}</p>
-                <p className="text-[10px] text-gray-400 leading-tight">{user.email}</p>
-              </div>
+          {/* User */}
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="w-8 h-8 rounded-full bg-[#1a1a1a] text-[#d4a843] flex items-center justify-center text-xs font-bold">
+              {initials}
             </div>
-
-            {/* Logout */}
-            <button
-              onClick={handleLogout}
-              title="Cerrar sesión"
-              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
-              </svg>
-            </button>
+            <div className="hidden md:block text-right">
+              <p className="text-xs font-semibold text-gray-900 leading-tight">{user.nombre}</p>
+              <p className="text-[10px] text-gray-400 leading-tight">{user.email}</p>
+            </div>
           </div>
         </header>
 
