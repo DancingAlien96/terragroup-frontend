@@ -13,6 +13,7 @@ type Entidad = 'Banrural' | 'Industrial' | 'GT' | 'BAC';
 interface Cliente {
   id: number;
   nombre_comprador: string;
+  nit: string | null;
   email: string | null;
   telefono: string | null;
   descripcion_lote: string | null;
@@ -587,6 +588,7 @@ function ClienteModal({
   const today = new Date().toISOString().split('T')[0];
 
   const [nombre, setNombre] = useState(cliente?.nombre_comprador ?? '');
+  const [nit, setNit] = useState(cliente?.nit ?? '');
   const [email, setEmail] = useState(cliente?.email ?? '');
   const [telefono, setTelefono] = useState(cliente?.telefono ?? '');
   const [descLote, setDescLote] = useState(cliente?.descripcion_lote ?? '');
@@ -664,6 +666,7 @@ function ClienteModal({
     try {
       const body = {
         nombre_comprador: nombre,
+        nit: nit.trim() || null,
         email: email || null,
         telefono: telefono || null,
         descripcion_lote: descLote || null,
@@ -729,6 +732,13 @@ function ClienteModal({
               <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} maxLength={20} placeholder="Ej. 5555-1234" required
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             </div>
+          </div>
+
+          {/* NIT (opcional) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">NIT (opcional)</label>
+            <input type="text" value={nit} onChange={e => setNit(e.target.value)} maxLength={20} placeholder="Ej. 1234567-8 o CF"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Descripción del Lote *</label>

@@ -22,6 +22,7 @@ interface Pago {
   cliente_descripcion_lote: string | null;
   cliente_num_cuotas: number | null;
   num_cuota: number | null;
+  num_recibo: number | null;
   propietario_nombre: string;
   lote_clave: string;
   monto: number;
@@ -495,7 +496,7 @@ export default function GestionPagosPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs text-gray-400 border-b border-gray-100">
-                    <th className="px-5 py-3 text-left font-medium">ID</th>
+                    <th className="px-5 py-3 text-left font-medium">Recibo</th>
                     <th className="px-5 py-3 text-left font-medium">Cliente</th>
                     <th className="px-5 py-3 text-left font-medium">Lote</th>
                     <th className="px-5 py-3 text-center font-medium">Cuota N°</th>
@@ -514,7 +515,9 @@ export default function GestionPagosPage() {
                     </tr>
                   ) : pagosFiltrados.map((pago) => (
                     <tr key={pago.id} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors last:border-0">
-                      <td className="px-5 py-3.5 text-gray-400 text-xs font-mono">PAG-{String(pago.id).padStart(3, '0')}</td>
+                      <td className="px-5 py-3.5 text-gray-700 text-xs font-mono font-semibold">
+                        {pago.num_recibo != null ? `#${String(pago.num_recibo).padStart(4, '0')}` : <span className="text-gray-300">—</span>}
+                      </td>
 
                       <td className="px-5 py-3.5 font-medium text-gray-900 whitespace-nowrap">
                         {pago.cliente_nombre_comprador ?? pago.propietario_nombre}
@@ -596,6 +599,7 @@ export default function GestionPagosPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div><span className="text-gray-400">Recibo: </span><span className="font-mono font-semibold text-gray-700">{pago.num_recibo != null ? `#${String(pago.num_recibo).padStart(4, '0')}` : '—'}</span></div>
                   <div><span className="text-gray-400">Monto: </span><span className="font-bold text-gray-900">{fmt(pago.monto)}</span></div>
                   <div><span className="text-gray-400">Cuota: </span><span className="font-mono text-gray-700">{pago.num_cuota != null ? `${pago.num_cuota}${pago.cliente_num_cuotas ? ' / ' + pago.cliente_num_cuotas : ''}` : '—'}</span></div>
                   <div><span className="text-gray-400">Fecha: </span><span className="text-gray-700">{fmtDate(pago.fecha_pago ?? pago.fecha_vencimiento)}</span></div>
