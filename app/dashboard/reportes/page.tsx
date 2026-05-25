@@ -395,26 +395,39 @@ export default function ReportesPage() {
   }
 
   return (
-    <div className="p-6 bg-[#f9fafb] min-h-full">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#1a1a1a]">Reportes</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Genera y exporta reportes financieros del sistema</p>
+    <div className="p-4 sm:p-6 bg-[#f9fafb] min-h-full">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-[#1a1a1a]">Reportes</h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Genera y exporta reportes financieros del sistema</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 items-start">
         {/* Sidebar config */}
-        <div className="w-full lg:w-80 shrink-0 bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-[#1a1a1a] mb-4">Configurar Reporte</h2>
+        <div className="w-full lg:w-80 shrink-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm">
+          <h2 className="text-base font-semibold text-[#1a1a1a] mb-3 sm:mb-4">Configurar Reporte</h2>
 
-          <div className="mb-5">
+          <div className="mb-4 sm:mb-5">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Tipo de Reporte</p>
-            <div className="flex flex-col gap-2">
+            {/* En lg+ se muestra como lista vertical. En mobile, lista compacta scrollable horizontalmente. */}
+            <div className="hidden lg:flex flex-col gap-2">
               {TIPOS_REPORTE.map(({ id, label, icon: Icon }) => {
                 const active = tipo === id;
                 return (
                   <button key={id} onClick={() => { setTipo(id); setGenerado(false); }}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm font-medium transition-all text-left ${active ? 'bg-[#fdf3d9] border-[#d4a843] text-[#92700a]' : 'border-gray-200 text-gray-700 hover:border-[#d4a843]'}`}>
                     <Icon size={16} className={active ? 'text-[#d4a843]' : 'text-gray-400'} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="lg:hidden flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+              {TIPOS_REPORTE.map(({ id, label, icon: Icon }) => {
+                const active = tipo === id;
+                return (
+                  <button key={id} onClick={() => { setTipo(id); setGenerado(false); }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium whitespace-nowrap transition-all shrink-0 ${active ? 'bg-[#fdf3d9] border-[#d4a843] text-[#92700a]' : 'border-gray-200 text-gray-700'}`}>
+                    <Icon size={14} className={active ? 'text-[#d4a843]' : 'text-gray-400'} />
                     {label}
                   </button>
                 );
@@ -472,151 +485,158 @@ export default function ReportesPage() {
               <div className="bg-white rounded-xl border border-gray-200 p-10 shadow-sm text-center text-gray-400">Sin datos disponibles</div>
             ) : (
               <>
-                <p className="text-[11px] text-gray-400 -mb-2 px-1">Vista previa del documento que se generará al descargar.</p>
-                <div className="bg-gray-100 rounded-xl p-4 flex justify-center">
-                  {/* "Hoja" del documento, simula A4 reducido */}
-                  <div className="bg-white shadow-md ring-1 ring-gray-200 w-full max-w-2xl p-5 text-[10px] leading-snug text-gray-700 flex flex-col gap-3">
+                <p className="text-xs text-gray-400 -mb-2 px-1 hidden sm:block">Vista previa del documento que se generará al descargar.</p>
+                <p className="text-xs text-gray-400 px-1 sm:hidden">Resumen del documento que se generará al descargar.</p>
+                <div className="sm:bg-gray-100 sm:rounded-xl sm:p-4 flex justify-center">
+                  {/* "Hoja" del documento — solo emula A4 en desktop */}
+                  <div className="bg-white sm:shadow-md sm:ring-1 sm:ring-gray-200 sm:rounded w-full max-w-2xl p-4 sm:p-5 text-xs sm:text-[10px] leading-snug text-gray-700 flex flex-col gap-4 sm:gap-3">
                     {/* Encabezado del documento */}
-                    <div className="border-b border-gray-200 pb-2 flex items-start justify-between gap-2">
+                    <div className="border-b border-gray-200 pb-3 sm:pb-2 flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-[8px] uppercase tracking-wider text-[#b8922e] font-bold">Resumen Ejecutivo</p>
-                        <p className="text-[13px] font-bold text-[#1a1a1a] leading-tight">{resumen.empresa.nombre}</p>
-                        <p className="text-[9px] text-gray-400 mt-0.5 capitalize">
+                        <p className="text-[10px] sm:text-[8px] uppercase tracking-wider text-[#b8922e] font-bold">Resumen Ejecutivo</p>
+                        <p className="text-base sm:text-[13px] font-bold text-[#1a1a1a] leading-tight">{resumen.empresa.nombre}</p>
+                        <p className="text-[11px] sm:text-[9px] text-gray-400 mt-0.5 capitalize">
                           Plan {resumen.empresa.plan}
                           {resumen.empresa.fecha_vence && ` · vence ${fmtDate(resumen.empresa.fecha_vence)}`}
                         </p>
                       </div>
-                      <p className="text-[8px] text-gray-400 whitespace-nowrap">
+                      <p className="text-[10px] sm:text-[8px] text-gray-400 whitespace-nowrap">
                         {new Date(resumen.generado_en).toLocaleDateString('es-GT', { dateStyle: 'medium' })}
                       </p>
                     </div>
 
                     {/* KPIs */}
-                    <div className="grid grid-cols-4 gap-2">
-                      <div className="border border-gray-200 rounded p-1.5">
-                        <p className="text-[8px] text-gray-500 uppercase">Cobrado</p>
-                        <p className="text-[11px] font-bold text-[#b8922e] truncate">{fmt(resumen.kpi.total_cobrado)}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="border border-gray-200 rounded p-2 sm:p-1.5">
+                        <p className="text-[10px] sm:text-[8px] text-gray-500 uppercase">Cobrado</p>
+                        <p className="text-sm sm:text-[11px] font-bold text-[#b8922e] truncate">{fmt(resumen.kpi.total_cobrado)}</p>
                       </div>
-                      <div className="border border-gray-200 rounded p-1.5">
-                        <p className="text-[8px] text-gray-500 uppercase">Pendiente</p>
-                        <p className="text-[11px] font-bold text-gray-700 truncate">{fmt(resumen.kpi.total_pendiente)}</p>
+                      <div className="border border-gray-200 rounded p-2 sm:p-1.5">
+                        <p className="text-[10px] sm:text-[8px] text-gray-500 uppercase">Pendiente</p>
+                        <p className="text-sm sm:text-[11px] font-bold text-gray-700 truncate">{fmt(resumen.kpi.total_pendiente)}</p>
                       </div>
-                      <div className="border border-gray-200 rounded p-1.5">
-                        <p className="text-[8px] text-gray-500 uppercase">Vencido</p>
-                        <p className="text-[11px] font-bold text-red-600 truncate">{fmt(resumen.kpi.total_vencido)}</p>
+                      <div className="border border-gray-200 rounded p-2 sm:p-1.5">
+                        <p className="text-[10px] sm:text-[8px] text-gray-500 uppercase">Vencido</p>
+                        <p className="text-sm sm:text-[11px] font-bold text-red-600 truncate">{fmt(resumen.kpi.total_vencido)}</p>
                       </div>
-                      <div className="border border-gray-200 rounded p-1.5">
-                        <p className="text-[8px] text-gray-500 uppercase">Tasa</p>
-                        <p className="text-[11px] font-bold text-[#b8922e]">{resumen.kpi.tasa_cobranza}%</p>
+                      <div className="border border-gray-200 rounded p-2 sm:p-1.5">
+                        <p className="text-[10px] sm:text-[8px] text-gray-500 uppercase">Tasa</p>
+                        <p className="text-sm sm:text-[11px] font-bold text-[#b8922e]">{resumen.kpi.tasa_cobranza}%</p>
                       </div>
                     </div>
 
-                    {/* Cartera y Lotes en línea */}
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Cartera y Lotes */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3">
                       <div>
-                        <div className="flex items-center gap-1 mb-1">
-                          <AlertTriangle size={10} className="text-[#b8922e]" />
-                          <h4 className="font-semibold text-[9px] uppercase text-[#1a1a1a]">Cartera</h4>
+                        <div className="flex items-center gap-1 mb-2 sm:mb-1">
+                          <AlertTriangle size={12} className="text-[#b8922e] sm:hidden" />
+                          <AlertTriangle size={10} className="text-[#b8922e] hidden sm:inline" />
+                          <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a]">Cartera</h4>
                         </div>
-                        <div className="grid grid-cols-2 gap-1.5 mb-1.5">
-                          <div className="bg-gray-50 rounded px-1.5 py-1">
-                            <p className="text-[8px] text-gray-500">Clientes</p>
-                            <p className="text-[12px] font-bold text-[#1a1a1a]">{resumen.cartera.clientes_totales}</p>
+                        <div className="grid grid-cols-2 gap-2 sm:gap-1.5 mb-2 sm:mb-1.5">
+                          <div className="bg-gray-50 rounded px-2 py-1.5 sm:px-1.5 sm:py-1">
+                            <p className="text-[10px] sm:text-[8px] text-gray-500">Clientes</p>
+                            <p className="text-sm sm:text-[12px] font-bold text-[#1a1a1a]">{resumen.cartera.clientes_totales}</p>
                           </div>
-                          <div className="bg-gray-50 rounded px-1.5 py-1">
-                            <p className="text-[8px] text-gray-500">En mora</p>
-                            <p className="text-[12px] font-bold text-red-600">{resumen.cartera.clientes_en_mora}</p>
+                          <div className="bg-gray-50 rounded px-2 py-1.5 sm:px-1.5 sm:py-1">
+                            <p className="text-[10px] sm:text-[8px] text-gray-500">En mora</p>
+                            <p className="text-sm sm:text-[12px] font-bold text-red-600">{resumen.cartera.clientes_en_mora}</p>
                           </div>
                         </div>
                         <div className="grid grid-cols-3 gap-1 text-center">
-                          <div className="bg-gray-50 rounded p-0.5"><p className="text-[10px] font-bold text-red-600">{resumen.cartera.mora_grave}</p><p className="text-[7px] uppercase text-gray-500">Grave</p></div>
-                          <div className="bg-gray-50 rounded p-0.5"><p className="text-[10px] font-bold text-[#b8922e]">{resumen.cartera.mora_media}</p><p className="text-[7px] uppercase text-gray-500">Media</p></div>
-                          <div className="bg-gray-50 rounded p-0.5"><p className="text-[10px] font-bold text-[#d4a843]">{resumen.cartera.mora_temprana}</p><p className="text-[7px] uppercase text-gray-500">Temp.</p></div>
+                          <div className="bg-gray-50 rounded p-1 sm:p-0.5"><p className="text-xs sm:text-[10px] font-bold text-red-600">{resumen.cartera.mora_grave}</p><p className="text-[9px] sm:text-[7px] uppercase text-gray-500">Grave</p></div>
+                          <div className="bg-gray-50 rounded p-1 sm:p-0.5"><p className="text-xs sm:text-[10px] font-bold text-[#b8922e]">{resumen.cartera.mora_media}</p><p className="text-[9px] sm:text-[7px] uppercase text-gray-500">Media</p></div>
+                          <div className="bg-gray-50 rounded p-1 sm:p-0.5"><p className="text-xs sm:text-[10px] font-bold text-[#d4a843]">{resumen.cartera.mora_temprana}</p><p className="text-[9px] sm:text-[7px] uppercase text-gray-500">Temp.</p></div>
                         </div>
-                        <p className="text-[8px] text-gray-500 mt-1 text-center">Total vencido: <span className="font-bold text-red-600">{fmt(resumen.cartera.total_vencido)}</span></p>
+                        <p className="text-[10px] sm:text-[8px] text-gray-500 mt-1 text-center">Total vencido: <span className="font-bold text-red-600">{fmt(resumen.cartera.total_vencido)}</span></p>
                       </div>
                       <div>
-                        <div className="flex items-center gap-1 mb-1">
-                          <MapPin size={10} className="text-[#d4a843]" />
-                          <h4 className="font-semibold text-[9px] uppercase text-[#1a1a1a]">Inventario de Lotes</h4>
+                        <div className="flex items-center gap-1 mb-2 sm:mb-1">
+                          <MapPin size={12} className="text-[#d4a843] sm:hidden" />
+                          <MapPin size={10} className="text-[#d4a843] hidden sm:inline" />
+                          <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a]">Inventario de Lotes</h4>
                         </div>
-                        <div className="grid grid-cols-3 gap-1.5 text-center">
-                          <div className="bg-gray-50 rounded p-1.5"><p className="text-[8px] text-gray-500">Disp.</p><p className="text-[12px] font-bold text-[#1a1a1a]">{resumen.lotes.disponible}</p></div>
-                          <div className="bg-gray-50 rounded p-1.5"><p className="text-[8px] text-gray-500">Vend.</p><p className="text-[12px] font-bold text-[#b8922e]">{resumen.lotes.vendido}</p></div>
-                          <div className="bg-gray-50 rounded p-1.5"><p className="text-[8px] text-gray-500">Reserv.</p><p className="text-[12px] font-bold text-[#d4a843]">{resumen.lotes.reservado}</p></div>
+                        <div className="grid grid-cols-3 gap-2 sm:gap-1.5 text-center">
+                          <div className="bg-gray-50 rounded p-2 sm:p-1.5"><p className="text-[10px] sm:text-[8px] text-gray-500">Disp.</p><p className="text-sm sm:text-[12px] font-bold text-[#1a1a1a]">{resumen.lotes.disponible}</p></div>
+                          <div className="bg-gray-50 rounded p-2 sm:p-1.5"><p className="text-[10px] sm:text-[8px] text-gray-500">Vend.</p><p className="text-sm sm:text-[12px] font-bold text-[#b8922e]">{resumen.lotes.vendido}</p></div>
+                          <div className="bg-gray-50 rounded p-2 sm:p-1.5"><p className="text-[10px] sm:text-[8px] text-gray-500">Reserv.</p><p className="text-sm sm:text-[12px] font-bold text-[#d4a843]">{resumen.lotes.reservado}</p></div>
                         </div>
-                        <p className="text-[8px] text-gray-500 mt-1 text-center">Total catálogo: <span className="font-bold text-[#1a1a1a]">{resumen.lotes.total}</span></p>
+                        <p className="text-[10px] sm:text-[8px] text-gray-500 mt-1 text-center">Total catálogo: <span className="font-bold text-[#1a1a1a]">{resumen.lotes.total}</span></p>
                       </div>
                     </div>
 
                     {/* Top 5 deudores */}
                     <div>
-                      <h4 className="font-semibold text-[9px] uppercase text-[#1a1a1a] mb-1">Top 5 Deudores</h4>
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-200 text-[8px] uppercase text-gray-400">
-                            <th className="text-left py-1 font-medium">Cliente</th>
-                            <th className="text-left py-1 font-medium">Lote</th>
-                            <th className="text-right py-1 font-medium">Cuotas</th>
-                            <th className="text-right py-1 font-medium">Vencido</th>
-                            <th className="text-right py-1 font-medium">Días</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {resumen.top_deudores.length === 0 ? (
-                            <tr><td colSpan={5} className="text-center py-2 text-gray-400 text-[9px]">Sin deudores</td></tr>
-                          ) : resumen.top_deudores.map((d: any, i: number) => (
-                            <tr key={i} className="border-b border-gray-100 last:border-0 text-[9px]">
-                              <td className="py-1 truncate max-w-[100px]">{d.nombre}</td>
-                              <td className="py-1 text-gray-500 truncate max-w-[80px]">{d.lote}</td>
-                              <td className="py-1 text-right">{d.cuotas_vencidas}</td>
-                              <td className="py-1 text-right font-bold text-red-600">{fmt(d.monto_vencido)}</td>
-                              <td className={`py-1 text-right font-bold ${d.dias_mora > 90 ? 'text-red-600' : d.dias_mora > 30 ? 'text-[#b8922e]' : 'text-[#d4a843]'}`}>{d.dias_mora}</td>
+                      <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a] mb-2 sm:mb-1">Top 5 Deudores</h4>
+                      <div className="overflow-x-auto -mx-1 sm:mx-0">
+                        <table className="w-full min-w-[440px] sm:min-w-0">
+                          <thead>
+                            <tr className="border-b border-gray-200 text-[10px] sm:text-[8px] uppercase text-gray-400">
+                              <th className="text-left py-1 px-1 font-medium">Cliente</th>
+                              <th className="text-left py-1 px-1 font-medium">Lote</th>
+                              <th className="text-right py-1 px-1 font-medium">Cuotas</th>
+                              <th className="text-right py-1 px-1 font-medium">Vencido</th>
+                              <th className="text-right py-1 px-1 font-medium">Días</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {resumen.top_deudores.length === 0 ? (
+                              <tr><td colSpan={5} className="text-center py-2 text-gray-400 text-[11px] sm:text-[9px]">Sin deudores</td></tr>
+                            ) : resumen.top_deudores.map((d: any, i: number) => (
+                              <tr key={i} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-[9px]">
+                                <td className="py-1 px-1 truncate max-w-[120px] sm:max-w-[100px]">{d.nombre}</td>
+                                <td className="py-1 px-1 text-gray-500 truncate max-w-[90px] sm:max-w-[80px]">{d.lote}</td>
+                                <td className="py-1 px-1 text-right">{d.cuotas_vencidas}</td>
+                                <td className="py-1 px-1 text-right font-bold text-red-600 whitespace-nowrap">{fmt(d.monto_vencido)}</td>
+                                <td className={`py-1 px-1 text-right font-bold ${d.dias_mora > 90 ? 'text-red-600' : d.dias_mora > 30 ? 'text-[#b8922e]' : 'text-[#d4a843]'}`}>{d.dias_mora}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
 
                     {/* Top vendedores */}
                     <div>
-                      <h4 className="font-semibold text-[9px] uppercase text-[#1a1a1a] mb-1">Top 5 Vendedores</h4>
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-200 text-[8px] uppercase text-gray-400">
-                            <th className="text-left py-1 font-medium">Vendedor</th>
-                            <th className="text-right py-1 font-medium">Ventas</th>
-                            <th className="text-right py-1 font-medium">Comisiones</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {resumen.top_vendedores.length === 0 ? (
-                            <tr><td colSpan={3} className="text-center py-2 text-gray-400 text-[9px]">Sin comisiones</td></tr>
-                          ) : resumen.top_vendedores.map((v: any, i: number) => (
-                            <tr key={i} className="border-b border-gray-100 last:border-0 text-[9px]">
-                              <td className="py-1 truncate max-w-[140px]">{v.nombre}</td>
-                              <td className="py-1 text-right">{v.ventas}</td>
-                              <td className="py-1 text-right font-bold text-[#d4a843]">{fmt(v.total_comisiones)}</td>
+                      <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a] mb-2 sm:mb-1">Top 5 Vendedores</h4>
+                      <div className="overflow-x-auto -mx-1 sm:mx-0">
+                        <table className="w-full min-w-[320px] sm:min-w-0">
+                          <thead>
+                            <tr className="border-b border-gray-200 text-[10px] sm:text-[8px] uppercase text-gray-400">
+                              <th className="text-left py-1 px-1 font-medium">Vendedor</th>
+                              <th className="text-right py-1 px-1 font-medium">Ventas</th>
+                              <th className="text-right py-1 px-1 font-medium">Comisiones</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {resumen.top_vendedores.length === 0 ? (
+                              <tr><td colSpan={3} className="text-center py-2 text-gray-400 text-[11px] sm:text-[9px]">Sin comisiones</td></tr>
+                            ) : resumen.top_vendedores.map((v: any, i: number) => (
+                              <tr key={i} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-[9px]">
+                                <td className="py-1 px-1 truncate max-w-[160px] sm:max-w-[140px]">{v.nombre}</td>
+                                <td className="py-1 px-1 text-right">{v.ventas}</td>
+                                <td className="py-1 px-1 text-right font-bold text-[#d4a843] whitespace-nowrap">{fmt(v.total_comisiones)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
 
                     {/* Tendencia mini */}
                     {resumen.tendencia && resumen.tendencia.length > 0 && (
                       <div>
-                        <h4 className="font-semibold text-[9px] uppercase text-[#1a1a1a] mb-1">Tendencia de Cobranza · últimos {resumen.tendencia.length} mes(es)</h4>
-                        <div className="flex items-end gap-1 h-14">
+                        <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a] mb-2 sm:mb-1">Tendencia de Cobranza · últimos {resumen.tendencia.length} mes(es)</h4>
+                        <div className="flex items-end gap-1 h-20 sm:h-14">
                           {(() => {
                             const max = Math.max(...resumen.tendencia.map((t: any) => Number(t.cobrado)), 1);
                             return resumen.tendencia.map((t: any) => {
-                              const px = Math.round((Number(t.cobrado) / max) * 48);
+                              const px = Math.round((Number(t.cobrado) / max) * 60);
                               return (
-                                <div key={t.mes_key} className="flex-1 flex flex-col items-center gap-0.5">
-                                  <div className="text-[7px] font-semibold text-gray-500 truncate">{fmt(Number(t.cobrado))}</div>
+                                <div key={t.mes_key} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
+                                  <div className="text-[9px] sm:text-[7px] font-semibold text-gray-500 truncate w-full text-center">{fmt(Number(t.cobrado))}</div>
                                   <div className="w-full bg-[#d4a843] rounded-t-sm" style={{ height: `${px}px` }} />
-                                  <span className="text-[7px] text-gray-400">{t.mes}</span>
+                                  <span className="text-[9px] sm:text-[7px] text-gray-400">{t.mes}</span>
                                 </div>
                               );
                             });
@@ -625,7 +645,7 @@ export default function ReportesPage() {
                       </div>
                     )}
 
-                    <p className="text-[7px] text-gray-400 text-center pt-2 border-t border-gray-100">
+                    <p className="text-[10px] sm:text-[7px] text-gray-400 text-center pt-2 border-t border-gray-100">
                       Generado el {new Date(resumen.generado_en).toLocaleString('es-GT', { dateStyle: 'long', timeStyle: 'short' })}
                     </p>
                   </div>
@@ -636,24 +656,24 @@ export default function ReportesPage() {
 
           {/* Bar chart */}
           {tipo === 'cobranza' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm">
               <h3 className="font-semibold text-[#1a1a1a] mb-1">Tendencia de Cobranza</h3>
               <p className="text-xs text-gray-400 mb-4">Ultimos 6 meses — datos reales</p>
               {loading ? <div className="h-32 flex items-center justify-center text-gray-400 text-sm">Cargando...</div>
               : monthly.length === 0 ? <div className="h-32 flex items-center justify-center text-gray-400 text-sm">Sin datos de pagos aun</div>
               : (
-                <div className="flex items-end gap-4 h-32">
+                <div className="flex items-end gap-2 sm:gap-4 h-32">
                   {monthly.map((d: any) => {
                     const cobrado = Number(d.cobrado), pendiente = Number(d.pendiente);
                     const cobradoPx   = Math.round((cobrado   / maxBar) * 120);
                     const pendientePx = Math.round((pendiente / maxBar) * 120);
                     return (
-                      <div key={d.mes_key} className="flex-1 flex flex-col items-center gap-1">
+                      <div key={d.mes_key} className="flex-1 flex flex-col items-center gap-1 min-w-0">
                         <div className="w-full flex flex-col gap-0.5" style={{ height: '120px', justifyContent: 'flex-end' }}>
                           {pendientePx > 0 && <div className="w-full bg-orange-200 rounded-t-sm" style={{ height: `${pendientePx}px` }} />}
                           {cobradoPx  > 0 && <div className="w-full bg-[#d4a843] rounded-t-sm"  style={{ height: `${cobradoPx}px` }} />}
                         </div>
-                        <span className="text-xs text-gray-400">{d.mes}</span>
+                        <span className="text-[10px] sm:text-xs text-gray-400 truncate w-full text-center">{d.mes}</span>
                       </div>
                     );
                   })}
