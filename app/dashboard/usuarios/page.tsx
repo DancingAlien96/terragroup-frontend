@@ -284,17 +284,17 @@ export default function UsuariosPage() {
   }
 
   return (
-    <div className="p-6 bg-[#f9fafb] min-h-full">
+    <div className="p-4 sm:p-6 bg-[#f9fafb] min-h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 sm:mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#1a1a1a]">Usuarios</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Administradores con acceso al sistema</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#1a1a1a]">Usuarios</h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Administradores con acceso al sistema</p>
         </div>
         {!readOnly && (
           <button
             onClick={openCrear}
-            className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold px-4 py-2.5 rounded-lg transition-colors text-sm"
+            className="flex items-center justify-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold px-4 py-2.5 rounded-lg transition-colors text-sm whitespace-nowrap w-full sm:w-auto"
           >
             <Plus size={15} />
             Nuevo Usuario
@@ -382,22 +382,31 @@ export default function UsuariosPage() {
         </table></div>
 
         {/* Mobile cards */}
-        <div className="md:hidden">
+        <div className="md:hidden divide-y divide-gray-100">
           {usuarios.length === 0 ? (
             <div className="py-10 text-center text-sm text-gray-400">No hay usuarios registrados.</div>
           ) : usuarios.map(u => (
-            <div key={u.id} className="border-b border-gray-100 last:border-0 px-4 py-3 flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-[#1a1a1a] text-[#d4a843] flex items-center justify-center text-xs font-bold shrink-0">
-                    {u.nombre.split(' ').slice(0, 2).map(n => n[0]).join('')}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 text-sm">{u.nombre}</p>
-                    <p className="text-xs text-gray-400">{u.email}</p>
-                  </div>
+            <div key={u.id} className="px-4 py-4 flex flex-col gap-3">
+              {/* Info principal */}
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#1a1a1a] text-[#d4a843] flex items-center justify-center text-sm font-bold shrink-0">
+                  {u.nombre.split(' ').slice(0, 2).map(n => n[0]).join('')}
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 text-sm truncate">{u.nombre}</p>
+                  <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                  <p className="text-xs font-mono text-gray-500 mt-0.5">@{u.username}</p>
+                </div>
+                <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
+                  u.rol === 'admin' ? 'bg-[#fdf3d9] text-[#b8922e]' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {u.rol === 'admin' ? 'Admin' : 'Solo lectura'}
+                </span>
+              </div>
+
+              {/* Acciones */}
+              <div className="flex items-center justify-between gap-2 pl-13">
+                <div className="flex items-center gap-2 text-xs">
                   <button
                     onClick={() => toggleActivo(u)}
                     disabled={u.id === meId || readOnly}
@@ -405,26 +414,24 @@ export default function UsuariosPage() {
                   >
                     <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${u.activo ? 'translate-x-4' : 'translate-x-1'}`} />
                   </button>
-                  {!readOnly && (
-                    <>
-                      <button onClick={() => openEditar(u)} className="p-1.5 text-gray-400 hover:text-[#d4a843] hover:bg-[#fdf3d9] rounded-lg transition-colors">
-                        <Pencil size={14} />
-                      </button>
-                      <button onClick={() => handleDelete(u.id)} disabled={u.id === meId}
-                        className={`p-1.5 rounded-lg transition-colors ${u.id === meId ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}>
-                        <Trash2 size={14} />
-                      </button>
-                    </>
-                  )}
+                  <span className={u.activo ? 'text-[#b8922e] font-medium' : 'text-gray-400'}>
+                    {u.activo ? 'Activo' : 'Inactivo'}
+                  </span>
                 </div>
-              </div>
-              <div className="flex items-center gap-3 text-xs pl-[2.75rem]">
-                <span className="font-mono text-gray-500">@{u.username}</span>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  u.rol === 'admin' ? 'bg-[#fdf3d9] text-[#b8922e]' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {u.rol === 'admin' ? 'Administrador' : 'Solo lectura'}
-                </span>
+                {!readOnly && (
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => openEditar(u)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-[#b8922e] hover:bg-[#fdf3d9] rounded-lg transition-colors">
+                      <Pencil size={13} />
+                      Editar
+                    </button>
+                    <button onClick={() => handleDelete(u.id)} disabled={u.id === meId}
+                      className={`p-1.5 rounded-lg transition-colors ${u.id === meId ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}
+                      title={u.id === meId ? 'No puedes eliminar tu propia cuenta' : 'Eliminar'}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
