@@ -456,7 +456,7 @@ function DetalleModal({ cliente, onClose, onPagoActualizado }: {
                       <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs">Vencimiento</th>
                       <th className="text-right px-3 py-2 font-semibold text-gray-600 text-xs">Monto</th>
                       <th className="text-center px-3 py-2 font-semibold text-gray-600 text-xs">Estado</th>
-                      {!readOnly && <th className="px-3 py-2"></th>}
+                      <th className="px-3 py-2"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -476,18 +476,32 @@ function DetalleModal({ cliente, onClose, onPagoActualizado }: {
                               {p.estado}
                             </span>
                           </td>
-                          {!readOnly && (
-                            <td className="px-3 py-2 text-center">
-                              {p.estado !== 'pagado' && (
-                                <button
-                                  onClick={() => setPagoEditando(p)}
-                                  className="text-xs text-[#b8922e] font-semibold hover:underline"
-                                >
-                                  Pagar
-                                </button>
-                              )}
-                            </td>
-                          )}
+                          <td className="px-3 py-2 text-right whitespace-nowrap">
+                            {/* Si está pagado y tiene comprobante → ver/descargar */}
+                            {p.estado === 'pagado' && p.comprobante_url && (
+                              <a href={p.comprobante_url} target="_blank" rel="noopener noreferrer"
+                                title="Ver comprobante"
+                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline font-medium">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                  <polyline points="7 10 12 15 17 10" />
+                                  <line x1="12" y1="15" x2="12" y2="3" />
+                                </svg>
+                                Comprobante
+                              </a>
+                            )}
+                            {p.estado === 'pagado' && !p.comprobante_url && (
+                              <span className="text-[10px] text-gray-300 italic">sin comprobante</span>
+                            )}
+                            {!readOnly && p.estado !== 'pagado' && (
+                              <button
+                                onClick={() => setPagoEditando(p)}
+                                className="text-xs text-[#b8922e] font-semibold hover:underline"
+                              >
+                                Pagar
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))
                     }

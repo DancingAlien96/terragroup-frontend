@@ -96,8 +96,9 @@ export default function ReportesPage() {
 
   const monthly: any[] = reportData?.monthly ?? [];
 
-  // Cartera: clientes con cuotas mensuales vencidas (misma logica que /dashboard/cartera)
-  function calcularMoraReporte(c: any, pagosCount: number, today: Date) {
+  // Cartera: clientes con cuotas mensuales vencidas (misma logica que /dashboard/cartera).
+  // Solo cuenta los pagos con estado='pagado' — los pendientes/vencidos NO restan.
+  function calcularMoraReporte(c: any, pagadosCount: number, today: Date) {
     const deposito = new Date(c.fecha_deposito);
     const numCuotas = Number(c.num_cuotas);
     const fechasVencidas: Date[] = [];
@@ -106,15 +107,19 @@ export default function ReportesPage() {
       due.setMonth(due.getMonth() + i);
       if (due <= today) fechasVencidas.push(due); else break;
     }
-    const cuotasVencidas = fechasVencidas.length - pagosCount;
+    const cuotasVencidas = fechasVencidas.length - pagadosCount;
     if (cuotasVencidas <= 0) return null;
-    const oldestUnpaid = fechasVencidas[pagosCount];
+    const oldestUnpaid = fechasVencidas[pagadosCount];
     const diasMora = Math.floor((today.getTime() - oldestUnpaid.getTime()) / (1000 * 60 * 60 * 24));
     return { ...c, cuotas_vencidas: cuotasVencidas, monto_vencido: cuotasVencidas * Number(c.valor_cuota), dias_mora: diasMora };
   }
   const today = new Date(); today.setHours(23, 59, 59, 0);
   const carteraItems = clientes
-    .map((c: any) => calcularMoraReporte(c, pagos.filter((p: any) => p.cliente_id === c.id).length, today))
+    .map((c: any) => calcularMoraReporte(
+      c,
+      pagos.filter((p: any) => p.cliente_id === c.id && p.estado === 'pagado').length,
+      today,
+    ))
     .filter(Boolean) as any[];
   const totalCobrado   = monthly.reduce((s: number, d: any) => s + Number(d.cobrado), 0);
   const totalPendiente = monthly.reduce((s: number, d: any) => s + Number(d.pendiente), 0);
