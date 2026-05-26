@@ -60,7 +60,21 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
   const [liqMetodo, setLiqMetodo] = useState('Transferencia');
   const [liqReferencia, setLiqReferencia] = useState('');
   const [liqDescripcion, setLiqDescripcion] = useState('Liquidación anticipada');
+  const [liqComprobanteUrl, setLiqComprobanteUrl] = useState<string | null>(null);
+  const [liqUploading, setLiqUploading] = useState(false);
   const { showAlert, showConfirm, DialogJSX: PlanDialogJSX } = useDialog();
+
+  const { startUpload: startUploadLiq } = useUploadThing('comprobantePago', {
+    onUploadBegin: () => setLiqUploading(true),
+    onClientUploadComplete: (res) => {
+      setLiqUploading(false);
+      if (res?.[0]) setLiqComprobanteUrl(res[0].ufsUrl);
+    },
+    onUploadError: () => {
+      setLiqUploading(false);
+      showAlert('Error al subir el comprobante');
+    },
+  });
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -87,12 +101,14 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
     setLiquidando(true);
     try {
       const res = await api.amortizacion.liquidar(cliente.id, {
-        metodo_pago: liqMetodo,
-        referencia:  liqReferencia || null,
-        descripcion: liqDescripcion || 'Liquidación anticipada',
+        metodo_pago:     liqMetodo,
+        referencia:      liqReferencia || null,
+        descripcion:     liqDescripcion || 'Liquidación anticipada',
+        comprobante_url: liqComprobanteUrl,
       });
       showAlert(`${res.creados} cuotas liquidadas por ${fmt(Number(res.totalLiquidado))}`, 'success');
       setShowLiquidar(false);
+      setLiqComprobanteUrl(null);
       await cargar();
     } catch (e: any) {
       showAlert(e.message ?? 'Error al liquidar');
@@ -317,13 +333,59 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
                   <input type="text" value={liqDescripcion} onChange={e => setLiqDescripcion(e.target.value)}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Comprobante de pago</label>
+                  {liqComprobanteUrl ? (
+                    <div className="flex items-center gap-2 border border-emerald-200 bg-emerald-50 rounded-xl px-3 py-2.5">
+                      <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                      <a href={liqComprobanteUrl} target="_blank" rel="noopener noreferrer"
+                        className="text-sm text-emerald-700 font-medium underline truncate flex-1">
+                        Ver comprobante
+                      </a>
+                      <button type="button" onClick={() => setLiqComprobanteUrl(null)}
+                        className="text-gray-400 hover:text-red-500 text-xs shrink-0">✕</button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center justify-center gap-2 w-full border border-dashed border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-500 cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/40 transition-colors">
+                      {liqUploading ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                          </svg>
+                          Subiendo...
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={14} />
+                          Subir imagen o PDF
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const { compressImageIfLarge } = await import('@/lib/compressImage');
+                            const toUpload = await compressImageIfLarge(file);
+                            await startUploadLiq([toUpload]);
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">Imagen o PDF · máx. 8 MB</p>
+                </div>
               </div>
               <div className="flex gap-3 mt-5">
-                <button type="button" onClick={() => setShowLiquidar(false)} disabled={liquidando}
+                <button type="button" onClick={() => setShowLiquidar(false)} disabled={liquidando || liqUploading}
                   className="flex-1 border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50">
                   Cancelar
                 </button>
-                <button type="button" onClick={handleLiquidar} disabled={liquidando}
+                <button type="button" onClick={handleLiquidar} disabled={liquidando || liqUploading}
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-60">
                   {liquidando ? 'Liquidando...' : 'Confirmar liquidación'}
                 </button>
