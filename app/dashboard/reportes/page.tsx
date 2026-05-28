@@ -3,6 +3,37 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart2, Clock, Users, UserCheck, Download, CheckCircle2, TrendingUp, FileBarChart, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
+import { getStoredUser } from '@/lib/auth';
+
+/** Hoja "documento" para previsualizar cómo quedará el PDF. */
+function DocumentPaper({
+  label, title, subtitle, fecha, children,
+}: {
+  label: string; title: string; subtitle?: string | null;
+  fecha?: Date | string; children: React.ReactNode;
+}) {
+  const f = fecha ? new Date(fecha) : new Date();
+  return (
+    <>
+      <p className="text-xs text-gray-400 -mb-2 px-1">Vista previa del documento que se generará al descargar.</p>
+      <div className="sm:bg-gray-100 sm:rounded-xl sm:p-4 flex justify-center">
+        <div className="bg-white sm:shadow-md sm:ring-1 sm:ring-gray-200 sm:rounded w-full max-w-2xl p-4 sm:p-5 text-xs sm:text-[10px] leading-snug text-gray-700 flex flex-col gap-4 sm:gap-3">
+          <div className="border-b border-gray-200 pb-3 sm:pb-2 flex items-start justify-between gap-2">
+            <div>
+              <p className="text-[10px] sm:text-[8px] uppercase tracking-wider text-[#b8922e] font-bold">{label}</p>
+              <p className="text-base sm:text-[13px] font-bold text-[#1a1a1a] leading-tight">{title}</p>
+              {subtitle && <p className="text-[11px] sm:text-[9px] text-gray-400 mt-0.5">{subtitle}</p>}
+            </div>
+            <p className="text-[10px] sm:text-[8px] text-gray-400 whitespace-nowrap">
+              {f.toLocaleDateString('es-GT', { dateStyle: 'medium' })}
+            </p>
+          </div>
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
 
 type TipoReporte = 'general' | 'cobranza' | 'cartera' | 'clientes' | 'vendedores' | 'comisiones_mes';
 type FormatoExport = 'PDF' | 'Excel' | 'CSV';
@@ -46,6 +77,7 @@ function toExcelHTML(headers: string[], rows: (string | number)[][]): string {
 }
 
 export default function ReportesPage() {
+  const empresaNombre = typeof window !== 'undefined' ? (getStoredUser()?.empresa_nombre ?? '—') : '—';
   const [tipo, setTipo] = useState<TipoReporte>('cobranza');
   const [formato, setFormato] = useState<FormatoExport>('PDF');
   const [generando, setGenerando] = useState(false);
@@ -338,6 +370,41 @@ export default function ReportesPage() {
     `;
   }
 
+  // HTML para PDFs estilo documento (cobranza, cartera, clientes, vendedores, comisiones_mes)
+  function buildSimpleReportHTML(label: string, headers: string[], rows: (string | number)[][]): string {
+    const trHead = headers.map((h, i) => {
+      const align = i === 0 ? 'left' : (typeof rows[0]?.[i] === 'number' ? 'right' : 'left');
+      return `<th style="text-align:${align};padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:9px;font-weight:500;color:#6b7280;text-transform:uppercase">${h}</th>`;
+    }).join('');
+    const trBody = rows.length === 0
+      ? `<tr><td colspan="${headers.length}" style="text-align:center;color:#9ca3af;padding:12px;font-size:10px">Sin datos</td></tr>`
+      : rows.map((r) => `<tr>${r.map((c, i) => {
+          const align = i === 0 ? 'left' : (typeof c === 'number' ? 'right' : 'left');
+          const v = typeof c === 'number' ? fmt(c) : c;
+          return `<td style="padding:5px 8px;border-bottom:1px solid #f3f4f6;text-align:${align};color:#374151;font-size:10px">${v}</td>`;
+        }).join('')}</tr>`).join('');
+    const fechaStr = new Date().toLocaleDateString('es-GT', { dateStyle: 'medium' });
+    return `
+      <div style="max-width:760px;margin:0 auto;background:white;padding:28px;color:#374151;font-size:11px;line-height:1.45;font-family:-apple-system,Segoe UI,Roboto,sans-serif">
+        <div style="border-bottom:1px solid #e5e7eb;padding-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+          <div>
+            <p style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#b8922e;font-weight:700;margin:0">${label}</p>
+            <p style="font-size:18px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${empresaNombre}</p>
+            <p style="font-size:10px;color:#9ca3af;margin:2px 0 0">${rows.length} registro${rows.length === 1 ? '' : 's'}</p>
+          </div>
+          <p style="font-size:9px;color:#9ca3af;margin:0;white-space:nowrap">${fechaStr}</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>${trHead}</tr></thead>
+          <tbody>${trBody}</tbody>
+        </table>
+        <p style="font-size:8px;color:#9ca3af;text-align:center;margin-top:18px;padding-top:8px;border-top:1px solid #f3f4f6">
+          Generado el ${new Date().toLocaleString('es-GT', { dateStyle: 'long', timeStyle: 'short' })}
+        </p>
+      </div>
+    `;
+  }
+
   function handleGenerar() {
     setGenerando(true);
     setGenerado(false);
@@ -350,18 +417,14 @@ export default function ReportesPage() {
         const html = `<html><head><meta charset="UTF-8"></head><body><h2>${title}</h2>${toExcelHTML(headers, rows)}</body></html>`;
         downloadBlob(new Blob([html], { type: 'application/vnd.ms-excel' }), `${title}.xls`);
       } else {
-        // PDF: caso `general` usa el layout de vista previa; resto usa la tabla simple
+        // PDF: cada tipo usa su layout estilo documento (matchea la miniatura)
         const win = window.open('', '_blank');
         if (win) {
           let bodyHTML: string;
           if (tipo === 'general' && resumen) {
             bodyHTML = buildResumenHTML(resumen);
           } else {
-            const thRow = headers.map(h => `<th style="border:1px solid #e5e7eb;padding:6px 10px;background:#f9fafb;text-align:left;color:#374151">${h}</th>`).join('');
-            const tableRows = rows.map(r => `<tr>${r.map(c => `<td style="border:1px solid #e5e7eb;padding:6px 10px;color:#374151">${c}</td>`).join('')}</tr>`).join('');
-            bodyHTML = `<h2 style="margin-bottom:4px;color:#1a1a1a">${title}</h2>
-              <p style="color:#888;font-size:12px;margin-bottom:16px">Generado: ${new Date().toLocaleDateString('es-GT')}</p>
-              <table style="border-collapse:collapse;width:100%"><thead><tr>${thRow}</tr></thead><tbody>${tableRows}</tbody></table>`;
+            bodyHTML = buildSimpleReportHTML(title, headers, rows);
           }
           win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
             <style>
@@ -451,8 +514,8 @@ export default function ReportesPage() {
 
         {/* Main content */}
         <div className="flex-1 flex flex-col gap-5">
-          {/* KPI Cards — solo para no-general (general muestra todo en el preview) */}
-          {tipo === 'general' ? null : (
+          {/* KPI Cards — ya no se muestran arriba; cada tipo los integra en su preview */}
+          {false && tipo !== 'general' && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm text-center">
                 <p className="text-xs text-gray-500 mb-1">Total Cobrado</p>
@@ -632,165 +695,170 @@ export default function ReportesPage() {
             )
           )}
 
-          {/* Bar chart */}
+          {/* ─── Cobranza ──────────────────────────────────────── */}
           {tipo === 'cobranza' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 shadow-sm">
-              <h3 className="font-semibold text-[#1a1a1a] mb-1">Tendencia de Cobranza</h3>
-              <p className="text-xs text-gray-400 mb-4">Ultimos 6 meses — datos reales</p>
-              {loading ? <div className="h-32 flex items-center justify-center text-gray-400 text-sm">Cargando...</div>
-              : monthly.length === 0 ? <div className="h-32 flex items-center justify-center text-gray-400 text-sm">Sin datos de pagos aun</div>
-              : (
-                <div className="flex items-end gap-2 sm:gap-4 h-32">
-                  {monthly.map((d: any) => {
-                    const cobrado = Number(d.cobrado), pendiente = Number(d.pendiente);
-                    const cobradoPx   = Math.round((cobrado   / maxBar) * 120);
-                    const pendientePx = Math.round((pendiente / maxBar) * 120);
-                    return (
-                      <div key={d.mes_key} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                        <div className="w-full flex flex-col gap-0.5" style={{ height: '120px', justifyContent: 'flex-end' }}>
-                          {pendientePx > 0 && <div className="w-full bg-orange-200 rounded-t-sm" style={{ height: `${pendientePx}px` }} />}
-                          {cobradoPx  > 0 && <div className="w-full bg-[#d4a843] rounded-t-sm"  style={{ height: `${cobradoPx}px` }} />}
+            <DocumentPaper label="Cobranza General" title={empresaNombre} subtitle="Tendencia de pagos de los últimos 6 meses">
+              {/* KPIs */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="border border-gray-200 rounded p-2 sm:p-1.5"><p className="text-[10px] sm:text-[8px] text-gray-500 uppercase">Cobrado</p><p className="text-sm sm:text-[11px] font-bold text-[#b8922e] truncate">{loading ? '—' : fmt(totalCobrado)}</p></div>
+                <div className="border border-gray-200 rounded p-2 sm:p-1.5"><p className="text-[10px] sm:text-[8px] text-gray-500 uppercase">Pendiente</p><p className="text-sm sm:text-[11px] font-bold text-gray-700 truncate">{loading ? '—' : fmt(totalPendiente)}</p></div>
+                <div className="border border-gray-200 rounded p-2 sm:p-1.5"><p className="text-[10px] sm:text-[8px] text-gray-500 uppercase">Tasa</p><p className="text-sm sm:text-[11px] font-bold text-[#b8922e]">{loading ? '—' : `${tasa}%`}</p></div>
+              </div>
+
+              {/* Mini chart */}
+              <div>
+                <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a] mb-2 sm:mb-1">Tendencia mensual</h4>
+                {loading ? <div className="h-20 flex items-center justify-center text-gray-400 text-xs">Cargando...</div>
+                : monthly.length === 0 ? <div className="h-20 flex items-center justify-center text-gray-400 text-xs">Sin datos</div>
+                : (
+                  <div className="flex items-end gap-1 h-20 sm:h-14">
+                    {monthly.map((d: any) => {
+                      const cobrado = Number(d.cobrado), pendiente = Number(d.pendiente);
+                      const cobradoPx   = Math.round((cobrado   / maxBar) * 60);
+                      const pendientePx = Math.round((pendiente / maxBar) * 60);
+                      return (
+                        <div key={d.mes_key} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
+                          <div className="text-[9px] sm:text-[7px] font-semibold text-gray-500 truncate w-full text-center">{fmt(cobrado)}</div>
+                          <div className="w-full flex flex-col gap-0.5" style={{ height: '60px', justifyContent: 'flex-end' }}>
+                            {pendientePx > 0 && <div className="w-full bg-gray-200 rounded-t-sm" style={{ height: `${pendientePx}px` }} />}
+                            {cobradoPx > 0   && <div className="w-full bg-[#d4a843] rounded-t-sm" style={{ height: `${cobradoPx}px` }} />}
+                          </div>
+                          <span className="text-[9px] sm:text-[7px] text-gray-400">{d.mes}</span>
                         </div>
-                        <span className="text-[10px] sm:text-xs text-gray-400 truncate w-full text-center">{d.mes}</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Desglose */}
+              {monthly.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a] mb-2 sm:mb-1">Desglose mensual</h4>
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-[10px] sm:text-[8px] uppercase text-gray-400">
+                        <th className="text-left py-1 px-1 font-medium">Mes</th>
+                        <th className="text-right py-1 px-1 font-medium">Cobrado</th>
+                        <th className="text-right py-1 px-1 font-medium">Pendiente</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthly.map((d: any, i: number) => (
+                        <tr key={i} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-[9px]">
+                          <td className="py-1 px-1">{d.mes}</td>
+                          <td className="py-1 px-1 text-right font-bold text-[#b8922e]">{fmt(Number(d.cobrado))}</td>
+                          <td className="py-1 px-1 text-right text-gray-700">{fmt(Number(d.pendiente))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-            </div>
+            </DocumentPaper>
           )}
 
-          {/* Desglose mensual */}
-          {tipo === 'cobranza' && monthly.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="font-semibold text-[#1a1a1a]">Desglose Mensual</h3>
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-400">
-                    <th className="px-5 py-3 text-left font-medium">Mes</th>
-                    <th className="px-5 py-3 text-right font-medium">Cobrado</th>
-                    <th className="px-5 py-3 text-right font-medium">Pendiente</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {monthly.map((d: any, i: number) => (
-                    <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                      <td className="px-5 py-3 font-medium">{d.mes}</td>
-                      <td className="px-5 py-3 text-right text-green-600 font-semibold">{fmt(Number(d.cobrado))}</td>
-                      <td className="px-5 py-3 text-right text-orange-500">{fmt(Number(d.pendiente))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Cartera Vencida table */}
+          {/* ─── Cartera ───────────────────────────────────────── */}
           {tipo === 'cartera' && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="font-semibold text-[#1a1a1a]">Clientes con Cuotas Vencidas</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{loading ? '…' : `${carteraItems.length} cliente(s) con cuotas vencidas`}</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+            <DocumentPaper
+              label="Cartera Vencida"
+              title={empresaNombre}
+              subtitle={loading ? 'Cargando…' : `${carteraItems.length} cliente(s) con cuotas vencidas`}
+            >
+              <div className="overflow-x-auto -mx-1 sm:mx-0">
+                <table className="w-full min-w-[460px] sm:min-w-0">
                   <thead>
-                    <tr className="border-b border-gray-100 text-xs text-gray-400">
-                      <th className="px-5 py-3 text-left font-medium">Cliente</th>
-                      <th className="px-5 py-3 text-left font-medium">Lote</th>
-                      <th className="px-5 py-3 text-right font-medium">Cuotas Vencidas</th>
-                      <th className="px-5 py-3 text-right font-medium">Monto Vencido</th>
-                      <th className="px-5 py-3 text-right font-medium">Días en Mora</th>
+                    <tr className="border-b border-gray-200 text-[10px] sm:text-[8px] uppercase text-gray-400">
+                      <th className="text-left py-1 px-1 font-medium">Cliente</th>
+                      <th className="text-left py-1 px-1 font-medium">Lote</th>
+                      <th className="text-right py-1 px-1 font-medium">Cuotas</th>
+                      <th className="text-right py-1 px-1 font-medium">Vencido</th>
+                      <th className="text-right py-1 px-1 font-medium">Días</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">Cargando...</td></tr>
+                      <tr><td colSpan={5} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Cargando...</td></tr>
                     ) : carteraItems.length === 0 ? (
-                      <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">Sin clientes con cuotas vencidas</td></tr>
+                      <tr><td colSpan={5} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Sin clientes con cuotas vencidas</td></tr>
                     ) : carteraItems.map((c: any, i: number) => (
-                      <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                        <td className="px-5 py-3 font-medium text-[#1a1a1a]">{c.nombre_comprador}</td>
-                        <td className="px-5 py-3 text-gray-500">{c.descripcion_lote ?? '—'}</td>
-                        <td className="px-5 py-3 text-right font-semibold">{c.cuotas_vencidas}</td>
-                        <td className="px-5 py-3 text-right text-red-500 font-semibold">{fmt(c.monto_vencido)}</td>
-                        <td className="px-5 py-3 text-right">
-                          <span className={`font-bold ${c.dias_mora > 90 ? 'text-red-500' : c.dias_mora > 30 ? 'text-orange-500' : 'text-[#d4a843]'}`}>{c.dias_mora}</span>
-                        </td>
+                      <tr key={i} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-[9px]">
+                        <td className="py-1 px-1 truncate max-w-[140px]">{c.nombre_comprador}</td>
+                        <td className="py-1 px-1 text-gray-500 truncate max-w-[110px]">{c.descripcion_lote ?? '—'}</td>
+                        <td className="py-1 px-1 text-right">{c.cuotas_vencidas}</td>
+                        <td className="py-1 px-1 text-right font-bold text-red-600 whitespace-nowrap">{fmt(c.monto_vencido)}</td>
+                        <td className={`py-1 px-1 text-right font-bold ${c.dias_mora > 90 ? 'text-red-600' : c.dias_mora > 30 ? 'text-[#b8922e]' : 'text-[#d4a843]'}`}>{c.dias_mora}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </DocumentPaper>
           )}
 
-          {/* Clientes table */}
+          {/* ─── Reporte de Clientes ───────────────────────────── */}
           {tipo === 'clientes' && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="font-semibold text-[#1a1a1a]">Listado de Clientes</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{clientes.length} registro(s)</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+            <DocumentPaper
+              label="Reporte de Clientes"
+              title={empresaNombre}
+              subtitle={loading ? 'Cargando…' : `${clientes.length} cliente(s) registrado(s)`}
+            >
+              <div className="overflow-x-auto -mx-1 sm:mx-0">
+                <table className="w-full min-w-[500px] sm:min-w-0">
                   <thead>
-                    <tr className="border-b border-gray-100 text-xs text-gray-400">
-                      <th className="px-5 py-3 text-left font-medium">Cliente</th>
-                      <th className="px-5 py-3 text-left font-medium">Lote</th>
-                      <th className="px-5 py-3 text-right font-medium">Precio Neto</th>
-                      <th className="px-5 py-3 text-right font-medium">Enganche</th>
-                      <th className="px-5 py-3 text-right font-medium">Cuotas</th>
-                      <th className="px-5 py-3 text-right font-medium">Valor Cuota</th>
+                    <tr className="border-b border-gray-200 text-[10px] sm:text-[8px] uppercase text-gray-400">
+                      <th className="text-left py-1 px-1 font-medium">Cliente</th>
+                      <th className="text-left py-1 px-1 font-medium">Lote</th>
+                      <th className="text-right py-1 px-1 font-medium">Precio</th>
+                      <th className="text-right py-1 px-1 font-medium">Enganche</th>
+                      <th className="text-right py-1 px-1 font-medium">Cuotas</th>
+                      <th className="text-right py-1 px-1 font-medium">Valor</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">Cargando...</td></tr>
+                      <tr><td colSpan={6} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Cargando...</td></tr>
                     ) : clientes.length === 0 ? (
-                      <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">Sin clientes registrados</td></tr>
+                      <tr><td colSpan={6} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Sin clientes registrados</td></tr>
                     ) : clientes.map((c: any, i: number) => (
-                      <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                        <td className="px-5 py-3 font-medium text-[#1a1a1a]">{c.nombre_comprador}</td>
-                        <td className="px-5 py-3 text-gray-500">{c.descripcion_lote ?? '—'}</td>
-                        <td className="px-5 py-3 text-right font-semibold">{fmt(Number(c.precio_neto))}</td>
-                        <td className="px-5 py-3 text-right text-green-600">{fmt(Number(c.enganche))}</td>
-                        <td className="px-5 py-3 text-right">{c.num_cuotas}</td>
-                        <td className="px-5 py-3 text-right">{fmt(Number(c.valor_cuota))}</td>
+                      <tr key={i} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-[9px]">
+                        <td className="py-1 px-1 truncate max-w-[120px]">{c.nombre_comprador}</td>
+                        <td className="py-1 px-1 text-gray-500 truncate max-w-[100px]">{c.descripcion_lote ?? '—'}</td>
+                        <td className="py-1 px-1 text-right font-bold text-[#1a1a1a] whitespace-nowrap">{fmt(Number(c.precio_neto))}</td>
+                        <td className="py-1 px-1 text-right text-[#b8922e] whitespace-nowrap">{fmt(Number(c.enganche))}</td>
+                        <td className="py-1 px-1 text-right">{c.num_cuotas}</td>
+                        <td className="py-1 px-1 text-right whitespace-nowrap">{fmt(Number(c.valor_cuota))}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </DocumentPaper>
           )}
 
-          {/* Comisiones por Mes */}
+          {/* ─── Comisiones por Mes ────────────────────────────── */}
           {tipo === 'comisiones_mes' && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="font-semibold text-[#1a1a1a]">Comisiones por Mes</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{loading ? '…' : `${comisionesMes.length} registro(s)`}</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+            <DocumentPaper
+              label="Comisiones por Mes"
+              title={empresaNombre}
+              subtitle={loading ? 'Cargando…' : `${comisionesMes.length} registro(s)`}
+            >
+              <div className="overflow-x-auto -mx-1 sm:mx-0">
+                <table className="w-full min-w-[420px] sm:min-w-0">
                   <thead>
-                    <tr className="border-b border-gray-100 text-xs text-gray-400">
-                      <th className="px-5 py-3 text-left font-medium">Mes</th>
-                      <th className="px-5 py-3 text-left font-medium">Vendedor</th>
-                      <th className="px-5 py-3 text-right font-medium">Ventas</th>
-                      <th className="px-5 py-3 text-right font-medium">Total Comisiones</th>
+                    <tr className="border-b border-gray-200 text-[10px] sm:text-[8px] uppercase text-gray-400">
+                      <th className="text-left py-1 px-1 font-medium">Mes</th>
+                      <th className="text-left py-1 px-1 font-medium">Vendedor</th>
+                      <th className="text-right py-1 px-1 font-medium">Ventas</th>
+                      <th className="text-right py-1 px-1 font-medium">Comisiones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={4} className="px-5 py-8 text-center text-gray-400">Cargando...</td></tr>
+                      <tr><td colSpan={4} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Cargando...</td></tr>
                     ) : comisionesMes.length === 0 ? (
-                      <tr><td colSpan={4} className="px-5 py-8 text-center text-gray-400">Sin comisiones registradas</td></tr>
+                      <tr><td colSpan={4} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Sin comisiones registradas</td></tr>
                     ) : (() => {
-                      // Totales por mes para subtotales
                       const meses = [...new Set(comisionesMes.map(r => r.mes_key))];
                       return meses.map(mk => {
                         const filas = comisionesMes.filter(r => r.mes_key === mk);
@@ -798,16 +866,16 @@ export default function ReportesPage() {
                         return (
                           <React.Fragment key={mk}>
                             {filas.map((r, i) => (
-                              <tr key={`${mk}-${i}`} className="border-b border-gray-50 hover:bg-gray-50">
-                                <td className="px-5 py-3 text-gray-500">{i === 0 ? r.mes : ''}</td>
-                                <td className="px-5 py-3 font-medium text-[#1a1a1a]">{r.vendedor}</td>
-                                <td className="px-5 py-3 text-right">{r.cantidad}</td>
-                                <td className="px-5 py-3 text-right font-semibold text-[#d4a843]">{fmt(r.total)}</td>
+                              <tr key={`${mk}-${i}`} className="border-b border-gray-100 text-[11px] sm:text-[9px]">
+                                <td className="py-1 px-1 text-gray-500">{i === 0 ? r.mes : ''}</td>
+                                <td className="py-1 px-1 truncate max-w-[160px]">{r.vendedor}</td>
+                                <td className="py-1 px-1 text-right">{r.cantidad}</td>
+                                <td className="py-1 px-1 text-right font-bold text-[#d4a843] whitespace-nowrap">{fmt(r.total)}</td>
                               </tr>
                             ))}
-                            <tr key={`${mk}-sub`} className="bg-amber-50 border-b border-amber-100">
-                              <td className="px-5 py-2 text-xs font-semibold text-amber-700" colSpan={3}>Subtotal {filas[0].mes}</td>
-                              <td className="px-5 py-2 text-right text-sm font-bold text-amber-700">{fmt(totalMes)}</td>
+                            <tr key={`${mk}-sub`} className="bg-amber-50 border-b border-amber-100 text-[11px] sm:text-[9px]">
+                              <td className="py-1 px-1 font-semibold text-amber-700" colSpan={3}>Subtotal {filas[0].mes}</td>
+                              <td className="py-1 px-1 text-right font-bold text-amber-700">{fmt(totalMes)}</td>
                             </tr>
                           </React.Fragment>
                         );
@@ -816,43 +884,45 @@ export default function ReportesPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </DocumentPaper>
           )}
 
-          {/* Vendedores table */}
+          {/* ─── Vendedores ────────────────────────────────────── */}
           {tipo === 'vendedores' && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="font-semibold text-[#1a1a1a]">Vendedores y Comisiones</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{vendedores.length} vendedor(es)</p>
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-400">
-                    <th className="px-5 py-3 text-left font-medium">Nombre</th>
-                    <th className="px-5 py-3 text-left font-medium">Telefono</th>
-                    <th className="px-5 py-3 text-left font-medium">Email</th>
-                    <th className="px-5 py-3 text-right font-medium">N Ventas</th>
-                    <th className="px-5 py-3 text-right font-medium">Total Comisiones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">Cargando...</td></tr>
-                  ) : vendedores.length === 0 ? (
-                    <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">Sin vendedores registrados</td></tr>
-                  ) : vendedores.map((v: any, i: number) => (
-                    <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                      <td className="px-5 py-3 font-medium text-[#1a1a1a]">{v.nombre}</td>
-                      <td className="px-5 py-3 text-gray-500">{v.telefono ?? '—'}</td>
-                      <td className="px-5 py-3 text-gray-500">{v.email ?? '—'}</td>
-                      <td className="px-5 py-3 text-right">{Number(v.total_ventas ?? 0)}</td>
-                      <td className="px-5 py-3 text-right font-semibold text-[#d4a843]">{fmt(Number(v.total_comisiones ?? 0))}</td>
+            <DocumentPaper
+              label="Vendedores y Comisiones"
+              title={empresaNombre}
+              subtitle={loading ? 'Cargando…' : `${vendedores.length} vendedor(es)`}
+            >
+              <div className="overflow-x-auto -mx-1 sm:mx-0">
+                <table className="w-full min-w-[460px] sm:min-w-0">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-[10px] sm:text-[8px] uppercase text-gray-400">
+                      <th className="text-left py-1 px-1 font-medium">Nombre</th>
+                      <th className="text-left py-1 px-1 font-medium">Teléfono</th>
+                      <th className="text-left py-1 px-1 font-medium">Email</th>
+                      <th className="text-right py-1 px-1 font-medium">Ventas</th>
+                      <th className="text-right py-1 px-1 font-medium">Comisiones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr><td colSpan={5} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Cargando...</td></tr>
+                    ) : vendedores.length === 0 ? (
+                      <tr><td colSpan={5} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Sin vendedores registrados</td></tr>
+                    ) : vendedores.map((v: any, i: number) => (
+                      <tr key={i} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-[9px]">
+                        <td className="py-1 px-1 truncate max-w-[120px]">{v.nombre}</td>
+                        <td className="py-1 px-1 text-gray-500 truncate max-w-[90px]">{v.telefono ?? '—'}</td>
+                        <td className="py-1 px-1 text-gray-500 truncate max-w-[150px]">{v.email ?? '—'}</td>
+                        <td className="py-1 px-1 text-right">{Number(v.total_ventas ?? 0)}</td>
+                        <td className="py-1 px-1 text-right font-bold text-[#d4a843] whitespace-nowrap">{fmt(Number(v.total_comisiones ?? 0))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </DocumentPaper>
           )}
         </div>
       </div>
