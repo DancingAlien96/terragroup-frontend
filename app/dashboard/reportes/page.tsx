@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BarChart2, Clock, Users, UserCheck, Download, CheckCircle2, TrendingUp, FileBarChart, MapPin, AlertTriangle } from 'lucide-react';
+import { BarChart2, Clock, Users, UserCheck, Download, CheckCircle2, TrendingUp, FileBarChart, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 
 type TipoReporte = 'general' | 'cobranza' | 'cartera' | 'clientes' | 'vendedores' | 'comisiones_mes';
@@ -280,38 +280,25 @@ export default function ReportesPage() {
           </div>
         </div>
 
-        <!-- Cartera + Lotes -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-
-          <div>
-            <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 6px">Cartera</h4>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-              <div style="background:#f9fafb;border-radius:4px;padding:6px 8px">
-                <p style="font-size:9px;color:#6b7280;margin:0">Clientes</p>
-                <p style="font-size:13px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${r.cartera.clientes_totales}</p>
-              </div>
-              <div style="background:#f9fafb;border-radius:4px;padding:6px 8px">
-                <p style="font-size:9px;color:#6b7280;margin:0">En mora</p>
-                <p style="font-size:13px;font-weight:700;color:#dc2626;margin:2px 0 0">${r.cartera.clientes_en_mora}</p>
-              </div>
+        <!-- Cartera -->
+        <div style="margin-bottom:14px">
+          <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 6px">Cartera</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+            <div style="background:#f9fafb;border-radius:4px;padding:6px 8px">
+              <p style="font-size:9px;color:#6b7280;margin:0">Clientes</p>
+              <p style="font-size:13px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${r.cartera.clientes_totales}</p>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;text-align:center">
-              <div style="background:#f9fafb;border-radius:4px;padding:4px"><p style="font-size:12px;font-weight:700;color:#dc2626;margin:0">${r.cartera.mora_grave}</p><p style="font-size:8px;color:#6b7280;text-transform:uppercase;margin:0">Grave</p></div>
-              <div style="background:#f9fafb;border-radius:4px;padding:4px"><p style="font-size:12px;font-weight:700;color:#b8922e;margin:0">${r.cartera.mora_media}</p><p style="font-size:8px;color:#6b7280;text-transform:uppercase;margin:0">Media</p></div>
-              <div style="background:#f9fafb;border-radius:4px;padding:4px"><p style="font-size:12px;font-weight:700;color:#d4a843;margin:0">${r.cartera.mora_temprana}</p><p style="font-size:8px;color:#6b7280;text-transform:uppercase;margin:0">Temprana</p></div>
+            <div style="background:#f9fafb;border-radius:4px;padding:6px 8px">
+              <p style="font-size:9px;color:#6b7280;margin:0">En mora</p>
+              <p style="font-size:13px;font-weight:700;color:#dc2626;margin:2px 0 0">${r.cartera.clientes_en_mora}</p>
             </div>
-            <p style="font-size:9px;color:#6b7280;text-align:center;margin:6px 0 0">Total vencido: <strong style="color:#dc2626">${fmt(r.cartera.total_vencido)}</strong></p>
           </div>
-
-          <div>
-            <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 6px">Inventario de Lotes</h4>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">
-              <div style="background:#f9fafb;border-radius:4px;padding:8px"><p style="font-size:9px;color:#6b7280;margin:0">Disp.</p><p style="font-size:13px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${r.lotes.disponible}</p></div>
-              <div style="background:#f9fafb;border-radius:4px;padding:8px"><p style="font-size:9px;color:#6b7280;margin:0">Vend.</p><p style="font-size:13px;font-weight:700;color:#b8922e;margin:2px 0 0">${r.lotes.vendido}</p></div>
-              <div style="background:#f9fafb;border-radius:4px;padding:8px"><p style="font-size:9px;color:#6b7280;margin:0">Reserv.</p><p style="font-size:13px;font-weight:700;color:#d4a843;margin:2px 0 0">${r.lotes.reservado}</p></div>
-            </div>
-            <p style="font-size:9px;color:#6b7280;text-align:center;margin:6px 0 0">Total cat\u00E1logo: <strong style="color:#1a1a1a">${r.lotes.total}</strong></p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;text-align:center">
+            <div style="background:#f9fafb;border-radius:4px;padding:4px"><p style="font-size:12px;font-weight:700;color:#dc2626;margin:0">${r.cartera.mora_grave}</p><p style="font-size:8px;color:#6b7280;text-transform:uppercase;margin:0">Grave</p></div>
+            <div style="background:#f9fafb;border-radius:4px;padding:4px"><p style="font-size:12px;font-weight:700;color:#b8922e;margin:0">${r.cartera.mora_media}</p><p style="font-size:8px;color:#6b7280;text-transform:uppercase;margin:0">Media</p></div>
+            <div style="background:#f9fafb;border-radius:4px;padding:4px"><p style="font-size:12px;font-weight:700;color:#d4a843;margin:0">${r.cartera.mora_temprana}</p><p style="font-size:8px;color:#6b7280;text-transform:uppercase;margin:0">Temprana</p></div>
           </div>
+          <p style="font-size:9px;color:#6b7280;text-align:center;margin:6px 0 0">Total vencido: <strong style="color:#dc2626">${fmt(r.cartera.total_vencido)}</strong></p>
         </div>
 
         <!-- Top deudores -->
@@ -531,43 +518,29 @@ export default function ReportesPage() {
                     </div>
 
                     {/* Cartera y Lotes */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3">
-                      <div>
-                        <div className="flex items-center gap-1 mb-2 sm:mb-1">
-                          <AlertTriangle size={12} className="text-[#b8922e] sm:hidden" />
-                          <AlertTriangle size={10} className="text-[#b8922e] hidden sm:inline" />
-                          <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a]">Cartera</h4>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 sm:gap-1.5 mb-2 sm:mb-1.5">
-                          <div className="bg-gray-50 rounded px-2 py-1.5 sm:px-1.5 sm:py-1">
-                            <p className="text-[10px] sm:text-[8px] text-gray-500">Clientes</p>
-                            <p className="text-sm sm:text-[12px] font-bold text-[#1a1a1a]">{resumen.cartera.clientes_totales}</p>
-                          </div>
-                          <div className="bg-gray-50 rounded px-2 py-1.5 sm:px-1.5 sm:py-1">
-                            <p className="text-[10px] sm:text-[8px] text-gray-500">En mora</p>
-                            <p className="text-sm sm:text-[12px] font-bold text-red-600">{resumen.cartera.clientes_en_mora}</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 text-center">
-                          <div className="bg-gray-50 rounded p-1 sm:p-0.5"><p className="text-xs sm:text-[10px] font-bold text-red-600">{resumen.cartera.mora_grave}</p><p className="text-[9px] sm:text-[7px] uppercase text-gray-500">Grave</p></div>
-                          <div className="bg-gray-50 rounded p-1 sm:p-0.5"><p className="text-xs sm:text-[10px] font-bold text-[#b8922e]">{resumen.cartera.mora_media}</p><p className="text-[9px] sm:text-[7px] uppercase text-gray-500">Media</p></div>
-                          <div className="bg-gray-50 rounded p-1 sm:p-0.5"><p className="text-xs sm:text-[10px] font-bold text-[#d4a843]">{resumen.cartera.mora_temprana}</p><p className="text-[9px] sm:text-[7px] uppercase text-gray-500">Temp.</p></div>
-                        </div>
-                        <p className="text-[10px] sm:text-[8px] text-gray-500 mt-1 text-center">Total vencido: <span className="font-bold text-red-600">{fmt(resumen.cartera.total_vencido)}</span></p>
+                    {/* Cartera (sin inventario de lotes — no aplica al modelo informal) */}
+                    <div>
+                      <div className="flex items-center gap-1 mb-2 sm:mb-1">
+                        <AlertTriangle size={12} className="text-[#b8922e] sm:hidden" />
+                        <AlertTriangle size={10} className="text-[#b8922e] hidden sm:inline" />
+                        <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a]">Cartera</h4>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-1 mb-2 sm:mb-1">
-                          <MapPin size={12} className="text-[#d4a843] sm:hidden" />
-                          <MapPin size={10} className="text-[#d4a843] hidden sm:inline" />
-                          <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a]">Inventario de Lotes</h4>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-1.5 mb-2 sm:mb-1.5">
+                        <div className="bg-gray-50 rounded px-2 py-1.5 sm:px-1.5 sm:py-1">
+                          <p className="text-[10px] sm:text-[8px] text-gray-500">Clientes</p>
+                          <p className="text-sm sm:text-[12px] font-bold text-[#1a1a1a]">{resumen.cartera.clientes_totales}</p>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 sm:gap-1.5 text-center">
-                          <div className="bg-gray-50 rounded p-2 sm:p-1.5"><p className="text-[10px] sm:text-[8px] text-gray-500">Disp.</p><p className="text-sm sm:text-[12px] font-bold text-[#1a1a1a]">{resumen.lotes.disponible}</p></div>
-                          <div className="bg-gray-50 rounded p-2 sm:p-1.5"><p className="text-[10px] sm:text-[8px] text-gray-500">Vend.</p><p className="text-sm sm:text-[12px] font-bold text-[#b8922e]">{resumen.lotes.vendido}</p></div>
-                          <div className="bg-gray-50 rounded p-2 sm:p-1.5"><p className="text-[10px] sm:text-[8px] text-gray-500">Reserv.</p><p className="text-sm sm:text-[12px] font-bold text-[#d4a843]">{resumen.lotes.reservado}</p></div>
+                        <div className="bg-gray-50 rounded px-2 py-1.5 sm:px-1.5 sm:py-1">
+                          <p className="text-[10px] sm:text-[8px] text-gray-500">En mora</p>
+                          <p className="text-sm sm:text-[12px] font-bold text-red-600">{resumen.cartera.clientes_en_mora}</p>
                         </div>
-                        <p className="text-[10px] sm:text-[8px] text-gray-500 mt-1 text-center">Total catálogo: <span className="font-bold text-[#1a1a1a]">{resumen.lotes.total}</span></p>
                       </div>
+                      <div className="grid grid-cols-3 gap-1 text-center">
+                        <div className="bg-gray-50 rounded p-1 sm:p-0.5"><p className="text-xs sm:text-[10px] font-bold text-red-600">{resumen.cartera.mora_grave}</p><p className="text-[9px] sm:text-[7px] uppercase text-gray-500">Grave</p></div>
+                        <div className="bg-gray-50 rounded p-1 sm:p-0.5"><p className="text-xs sm:text-[10px] font-bold text-[#b8922e]">{resumen.cartera.mora_media}</p><p className="text-[9px] sm:text-[7px] uppercase text-gray-500">Media</p></div>
+                        <div className="bg-gray-50 rounded p-1 sm:p-0.5"><p className="text-xs sm:text-[10px] font-bold text-[#d4a843]">{resumen.cartera.mora_temprana}</p><p className="text-[9px] sm:text-[7px] uppercase text-gray-500">Temp.</p></div>
+                      </div>
+                      <p className="text-[10px] sm:text-[8px] text-gray-500 mt-1 text-center">Total vencido: <span className="font-bold text-red-600">{fmt(resumen.cartera.total_vencido)}</span></p>
                     </div>
 
                     {/* Top 5 deudores */}
