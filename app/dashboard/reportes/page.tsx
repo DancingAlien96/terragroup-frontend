@@ -80,6 +80,7 @@ export default function ReportesPage() {
   const empresaNombre = typeof window !== 'undefined' ? (getStoredUser()?.empresa_nombre ?? '—') : '—';
   const [tipo, setTipo] = useState<TipoReporte>('cobranza');
   const [formato, setFormato] = useState<FormatoExport>('PDF');
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [generando, setGenerando] = useState(false);
   const [generado, setGenerado] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
@@ -463,26 +464,13 @@ export default function ReportesPage() {
 
           <div className="mb-4 sm:mb-5">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Tipo de Reporte</p>
-            {/* En lg+ se muestra como lista vertical. En mobile, lista compacta scrollable horizontalmente. */}
-            <div className="hidden lg:flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
               {TIPOS_REPORTE.map(({ id, label, icon: Icon }) => {
                 const active = tipo === id;
                 return (
                   <button key={id} onClick={() => { setTipo(id); setGenerado(false); }}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm font-medium transition-all text-left ${active ? 'bg-[#fdf3d9] border-[#d4a843] text-[#92700a]' : 'border-gray-200 text-gray-700 hover:border-[#d4a843]'}`}>
+                    className={`flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-lg border text-sm font-medium transition-all text-left ${active ? 'bg-[#fdf3d9] border-[#d4a843] text-[#92700a]' : 'border-gray-200 text-gray-700 hover:border-[#d4a843]'}`}>
                     <Icon size={16} className={active ? 'text-[#d4a843]' : 'text-gray-400'} />
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="lg:hidden flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-              {TIPOS_REPORTE.map(({ id, label, icon: Icon }) => {
-                const active = tipo === id;
-                return (
-                  <button key={id} onClick={() => { setTipo(id); setGenerado(false); }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium whitespace-nowrap transition-all shrink-0 ${active ? 'bg-[#fdf3d9] border-[#d4a843] text-[#92700a]' : 'border-gray-200 text-gray-700'}`}>
-                    <Icon size={14} className={active ? 'text-[#d4a843]' : 'text-gray-400'} />
                     {label}
                   </button>
                 );
@@ -510,10 +498,31 @@ export default function ReportesPage() {
               ? <><CheckCircle2 size={16} />Descargado</>
               : <><Download size={16} />Generar Reporte</>}
           </button>
+
+          {/* Solo mobile: botón para abrir la vista previa en modal */}
+          <button onClick={() => setMobilePreviewOpen(true)}
+            className="lg:hidden w-full mt-2 flex items-center justify-center gap-2 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+            <FileBarChart size={15} />
+            Ver vista previa
+          </button>
         </div>
 
-        {/* Main content */}
-        <div className="flex-1 flex flex-col gap-5">
+        {/* Main content — inline en desktop, modal en mobile */}
+        <div className={`flex-1 ${
+          mobilePreviewOpen
+            ? 'fixed inset-0 z-50 bg-black/60 p-3 overflow-y-auto lg:relative lg:inset-auto lg:z-auto lg:bg-transparent lg:p-0'
+            : 'hidden lg:flex lg:flex-col lg:gap-5'
+        }`}>
+          {/* Cierre del modal solo visible en mobile */}
+          {mobilePreviewOpen && (
+            <div className="lg:hidden mb-3 flex justify-end">
+              <button onClick={() => setMobilePreviewOpen(false)}
+                className="bg-white text-gray-700 font-medium text-sm px-4 py-2 rounded-xl shadow-sm hover:bg-gray-50">
+                ✕ Cerrar
+              </button>
+            </div>
+          )}
+          <div className="flex flex-col gap-5 bg-transparent lg:bg-transparent rounded-2xl">
           {/* KPI Cards — ya no se muestran arriba; cada tipo los integra en su preview */}
           {false && tipo !== 'general' && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -924,6 +933,7 @@ export default function ReportesPage() {
               </div>
             </DocumentPaper>
           )}
+          </div>
         </div>
       </div>
     </div>
