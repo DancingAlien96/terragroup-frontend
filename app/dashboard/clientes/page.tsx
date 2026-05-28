@@ -430,15 +430,16 @@ function DetalleModal({ cliente, onClose, onPagoActualizado }: {
   // Si hay intereses, valorCuota los incluye, por eso no usamos precio_neto.
   const saldoPendiente = Math.max(0, (cliente.num_cuotas * cliente.valor_cuota) - totalPagado);
 
-  async function marcarPagado(p: any, datos: { monto: number; fecha_pago: string; metodo_pago: string; referencia: string }) {
+  async function marcarPagado(p: any, datos: { monto: number; fecha_pago: string; metodo_pago: string; referencia: string; comprobante_url: string | null }) {
     setSaving(true);
     try {
       await api.pagos.update(p.id, {
-        monto:        datos.monto,
-        fecha_pago:   datos.fecha_pago,
-        metodo_pago:  datos.metodo_pago,
-        referencia:   datos.referencia || null,
-        estado:       'pagado',
+        monto:           datos.monto,
+        fecha_pago:      datos.fecha_pago,
+        metodo_pago:     datos.metodo_pago,
+        referencia:      datos.referencia || null,
+        comprobante_url: datos.comprobante_url,
+        estado:          'pagado',
         fecha_vencimiento: p.fecha_vencimiento,
       });
       setPagoEditando(null);
@@ -594,58 +595,124 @@ function PagarCuotaModal({ pago, saving, onClose, onConfirm }: {
   pago: any;
   saving: boolean;
   onClose: () => void;
-  onConfirm: (p: any, datos: { monto: number; fecha_pago: string; metodo_pago: string; referencia: string }) => void;
+  onConfirm: (p: any, datos: { monto: number; fecha_pago: string; metodo_pago: string; referencia: string; comprobante_url: string | null }) => void;
 }) {
   const today = new Date().toISOString().split('T')[0];
   const [monto, setMonto]       = useState(String(pago.monto));
   const [fecha, setFecha]       = useState(pago.fecha_vencimiento?.slice(0, 10) ?? today);
   const [metodo, setMetodo]     = useState('Transferencia');
   const [referencia, setRef]    = useState('');
+  const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(pago.comprobante_url ?? null);
+  const [uploading, setUploading] = useState(false);
+  const { showAlert: showAlertCuota, DialogJSX: PagarDialogJSX } = useDialog();
+
+  const { startUpload } = useUploadThing('comprobantePago', {
+    onUploadBegin: () => setUploading(true),
+    onClientUploadComplete: (res) => {
+      setUploading(false);
+      if (res?.[0]) setComprobanteUrl(res[0].ufsUrl);
+    },
+    onUploadError: () => {
+      setUploading(false);
+      showAlertCuota('Error al subir el archivo. Verifica que sea imagen o PDF y menor a 8 MB.');
+    },
+  });
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-        <h3 className="text-base font-bold text-gray-900 mb-4">
-          Registrar pago — Cuota #{pago.num_cuota}
-        </h3>
-        <div className="flex flex-col gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Monto (Q) *</label>
-            <input type="number" step="0.01" min="0.01" value={monto} onChange={e => setMonto(e.target.value)} onWheel={e => e.currentTarget.blur()} required
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de pago *</label>
-            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} max={today}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Método de pago</label>
-            <select value={metodo} onChange={e => setMetodo(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
-              <option>Transferencia</option>
-              <option>Efectivo</option>
-              <option>Depósito</option>
-              <option>Cheque</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Referencia</label>
-            <input type="text" value={referencia} onChange={e => setRef(e.target.value)} placeholder="Opcional"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[92vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-gray-100 shrink-0">
+          <h3 className="text-base font-bold text-gray-900">
+            Registrar pago — Cuota #{pago.num_cuota}
+          </h3>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Monto (Q) *</label>
+              <input type="number" step="0.01" min="0.01" value={monto} onChange={e => setMonto(e.target.value)} onWheel={e => e.currentTarget.blur()} required
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de pago *</label>
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} max={today}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Método de pago</label>
+              <select value={metodo} onChange={e => setMetodo(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
+                <option>Transferencia</option>
+                <option>Efectivo</option>
+                <option>Depósito</option>
+                <option>Cheque</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Referencia</label>
+              <input type="text" value={referencia} onChange={e => setRef(e.target.value)} placeholder="Opcional"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Comprobante de pago</label>
+              {comprobanteUrl ? (
+                <div className="flex items-center gap-2 border border-green-200 bg-green-50 rounded-xl px-3 py-2.5">
+                  <CheckCircle2 size={14} className="text-green-600 shrink-0" />
+                  <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-sm text-green-700 font-medium underline truncate flex-1">
+                    Ver comprobante
+                  </a>
+                  <button type="button" onClick={() => setComprobanteUrl(null)}
+                    className="text-gray-400 hover:text-red-500 text-xs shrink-0">✕</button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 w-full border border-dashed border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-500 cursor-pointer hover:border-[#d4a843] hover:bg-amber-50 transition-colors">
+                  {uploading ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                      Subiendo...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={14} />
+                      Subir imagen o PDF
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const { compressImageIfLarge } = await import('@/lib/compressImage');
+                        const toUpload = await compressImageIfLarge(file);
+                        await startUpload([toUpload]);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              )}
+              <p className="text-xs text-gray-400 mt-1">Opcional · imagen o PDF · máx. 8 MB</p>
+            </div>
           </div>
         </div>
-        <div className="flex gap-3 mt-5">
-          <button type="button" onClick={onClose} disabled={saving}
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+          <button type="button" onClick={onClose} disabled={saving || uploading}
             className="flex-1 border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50">
             Cancelar
           </button>
-          <button type="button" disabled={saving || !monto || !fecha}
-            onClick={() => onConfirm(pago, { monto: Number(monto), fecha_pago: fecha, metodo_pago: metodo, referencia })}
+          <button type="button" disabled={saving || uploading || !monto || !fecha}
+            onClick={() => onConfirm(pago, { monto: Number(monto), fecha_pago: fecha, metodo_pago: metodo, referencia, comprobante_url: comprobanteUrl })}
             className="flex-1 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold text-sm py-2.5 rounded-xl transition-colors disabled:opacity-60">
             {saving ? 'Guardando...' : 'Confirmar pago'}
           </button>
         </div>
+        {PagarDialogJSX}
       </div>
     </div>
   );
