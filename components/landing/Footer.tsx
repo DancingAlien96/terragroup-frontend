@@ -29,12 +29,12 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="font-semibold text-sm mb-4 text-white">Soporte</h4>
+            <h4 className="font-semibold text-sm mb-4 text-white">Soporte y legal</h4>
             <ul className="flex flex-col gap-2 text-gray-400 text-sm">
-              <li><a href="#" className="hover:text-white transition-colors">Centro de ayuda</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Contacto</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Privacidad</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Términos de uso</a></li>
+              <li><a href="mailto:terragroup692@gmail.com" className="hover:text-white transition-colors">Contacto</a></li>
+              <li><Link href="/privacidad" className="hover:text-white transition-colors">Política de Privacidad</Link></li>
+              <li><Link href="/terminos" className="hover:text-white transition-colors">Términos y Condiciones</Link></li>
+              <li><Link href="/aviso-ia" className="hover:text-white transition-colors">Aviso sobre uso de IA</Link></li>
             </ul>
           </div>
         </div>
