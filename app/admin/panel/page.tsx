@@ -6,10 +6,11 @@ import { api } from '@/lib/api';
 import { getStoredUser, logout } from '@/lib/auth';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Legend, LineChart, Line,
 } from 'recharts';
 import {
   DollarSign, Building2, TrendingUp, Activity, Search, ArrowUp, ArrowDown,
+  Wallet, AlertTriangle, Trophy,
 } from 'lucide-react';
 
 interface EmpresaRow {
@@ -19,9 +20,10 @@ interface EmpresaRow {
   plan_nombre: string;
   plan_id: number;
   activo: boolean;
+  pago_suscripcion_id: string | null;
   total_usuarios: number;
   total_lotes: number;
-  total_contratos: number;
+  total_ventas: number;
 }
 
 interface Stats {
@@ -37,6 +39,10 @@ interface Stats {
   pagos_vencidos: number;
   distribucion_planes: { plan: string; count: number }[];
   ingresos_por_mes:    { mes: string; monto: number }[];
+  gmv_gestionado:      number;
+  cobranza_salud:      { pagados: number; pendientes: number; vencidos: number };
+  conversion_funnel:   { registros: number; pagaron: number; conversion_pct: number };
+  crecimiento_mensual: { mes: string; registros: number; activaciones: number }[];
 }
 
 interface Plan {
@@ -58,8 +64,14 @@ const formatMesShort = (mesIso: string) => {
   return MES_LABELS[m - 1] ?? mesIso;
 };
 
-const formatMoney = (val: number) =>
+const formatUSD = (val: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+const formatGTQ = (val: number) => `Q ${new Intl.NumberFormat('es-GT', { maximumFractionDigits: 0 }).format(val)}`;
+const formatGTQCompact = (val: number) => {
+  if (val >= 1_000_000) return `Q ${(val / 1_000_000).toFixed(1)}M`;
+  if (val >= 1_000)     return `Q ${(val / 1_000).toFixed(0)}k`;
+  return formatGTQ(val);
+};
 
 export default function AdminPage() {
   const router = useRouter();
@@ -101,6 +113,21 @@ export default function AdminPage() {
       (e.email ?? '').toLowerCase().includes(q),
     );
   }, [empresas, query]);
+
+  // Top 5 empresas por uso (ventas + lotes como score compuesto).
+  const topEmpresas = useMemo(() =>
+    [...empresas]
+      .filter((e) => e.activo)
+      .sort((a, b) => (b.total_ventas + b.total_lotes) - (a.total_ventas + a.total_lotes))
+      .slice(0, 5),
+    [empresas]);
+
+  // Empresas dormidas: activas + pagaron pero sin actividad (0 lotes, 0 ventas).
+  const empresasDormidas = useMemo(() =>
+    empresas
+      .filter((e) => e.activo && e.pago_suscripcion_id && e.total_lotes === 0 && e.total_ventas === 0)
+      .slice(0, 5),
+    [empresas]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -162,7 +189,20 @@ export default function AdminPage() {
     color: PLAN_COLORS[d.plan] ?? PIE_FALLBACK[i % PIE_FALLBACK.length],
   }));
 
+  const crecimientoChart = (stats?.crecimiento_mensual ?? []).map((r) => ({
+    mes:          formatMesShort(r.mes),
+    registros:    r.registros,
+    activaciones: r.activaciones,
+  }));
+
   const deltaPositivo = (stats?.ingresos_delta_mes ?? 0) >= 0;
+  const cobranzaTotal = stats
+    ? stats.cobranza_salud.pagados + stats.cobranza_salud.pendientes + stats.cobranza_salud.vencidos
+    : 0;
+  const cobranzaPct = (val: number) => cobranzaTotal > 0 ? Math.round((val / cobranzaTotal) * 100) : 0;
+  const funnelPagaronPct = stats?.conversion_funnel.registros
+    ? (stats.conversion_funnel.pagaron / stats.conversion_funnel.registros) * 100
+    : 0;
 
   return (
     <div className="min-h-screen bg-[#f0f2f5]">
@@ -195,9 +235,25 @@ export default function AdminPage() {
           <p className="text-sm text-gray-500 mt-1">Vista global de todas las empresas en la plataforma</p>
         </div>
 
+        {/* HERO — GMV gestionado */}
+        <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a1a] via-[#222] to-[#2a2a2a] p-6 shadow-lg flex items-center justify-between overflow-hidden relative">
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-2">
+              <Wallet size={16} className="text-[#d4a843]" />
+              <span className="text-xs font-bold text-[#d4a843] uppercase tracking-widest">GMV gestionado</span>
+            </div>
+            <div className="text-4xl sm:text-5xl font-extrabold text-white">
+              {loading ? '—' : formatGTQ(stats?.gmv_gestionado ?? 0)}
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Volumen total en cartera de las {stats?.empresas_activas ?? 0} empresas activas
+            </p>
+          </div>
+          <Wallet size={120} className="text-white/5 absolute -right-6 top-1/2 -translate-y-1/2" />
+        </div>
+
         {/* KPI cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Ingresos + delta */}
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#d4a843] flex items-center justify-center">
@@ -208,18 +264,17 @@ export default function AdminPage() {
                   deltaPositivo ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
                 }`}>
                   {deltaPositivo ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
-                  {formatMoney(Math.abs(stats.ingresos_delta_mes))}
+                  {formatUSD(Math.abs(stats.ingresos_delta_mes))}
                 </span>
               )}
             </div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Ingresos totales</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Ingresos SaaS</p>
             <p className="text-3xl font-bold text-[#1a1a1a]">
-              {loading ? '—' : formatMoney(stats?.ingresos_total ?? 0)}
+              {loading ? '—' : formatUSD(stats?.ingresos_total ?? 0)}
             </p>
             <p className="text-xs text-gray-400 mt-1">vs mes anterior</p>
           </div>
 
-          {/* Empresas activas */}
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
               <Building2 size={20} />
@@ -232,7 +287,6 @@ export default function AdminPage() {
             <p className="text-xs text-gray-400 mt-1">{stats?.usuarios_total ?? 0} usuarios totales</p>
           </div>
 
-          {/* Nuevas este mes */}
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
               <TrendingUp size={20} />
@@ -244,7 +298,6 @@ export default function AdminPage() {
             <p className="text-xs text-gray-400 mt-1">registros nuevos</p>
           </div>
 
-          {/* Tasa de activación */}
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
               <Activity size={20} />
@@ -253,33 +306,30 @@ export default function AdminPage() {
             <p className="text-3xl font-bold text-[#1a1a1a]">
               {loading ? '—' : `${stats?.tasa_activacion ?? 0}%`}
             </p>
-            <p className="text-xs text-gray-400 mt-1">% que pagan tras registro</p>
+            <p className="text-xs text-gray-400 mt-1">% que paga tras registro</p>
           </div>
         </div>
 
-        {/* Charts row */}
+        {/* Crecimiento MoM + Distribución planes */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm lg:col-span-2">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-[#1a1a1a]">Ingresos por mes</h3>
-                <p className="text-xs text-gray-400">Últimos 6 meses</p>
-              </div>
+            <div className="mb-4">
+              <h3 className="font-bold text-[#1a1a1a]">Crecimiento mensual</h3>
+              <p className="text-xs text-gray-400">Registros vs activaciones, últimos 12 meses</p>
             </div>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={ingresosChart} margin={{ top: 5, right: 10, bottom: 0, left: -10 }}>
+                <LineChart data={crecimientoChart} margin={{ top: 5, right: 10, bottom: 0, left: -20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="mes" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false}
-                    tickFormatter={(v) => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} />
+                  <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip
-                    cursor={{ fill: '#fef3c7', opacity: 0.3 }}
                     contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-                    formatter={(v) => [formatMoney(Number(v) || 0), 'Ingresos']}
                   />
-                  <Bar dataKey="monto" fill="#d4a843" radius={[8, 8, 0, 0]} />
-                </BarChart>
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                  <Line type="monotone" dataKey="registros" name="Registros" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="activaciones" name="Activaciones" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -308,6 +358,163 @@ export default function AdminPage() {
                 </ResponsiveContainer>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Embudo conversión + Cobranza salud + Ingresos por mes */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          {/* Funnel */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <div className="mb-4">
+              <h3 className="font-bold text-[#1a1a1a]">Embudo de conversión</h3>
+              <p className="text-xs text-gray-400">Registros → pagaron</p>
+            </div>
+            {loading ? (
+              <div className="text-gray-400 text-sm">—</div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="font-semibold text-gray-600">Registros</span>
+                    <span className="font-bold text-[#1a1a1a]">{stats?.conversion_funnel.registros ?? 0}</span>
+                  </div>
+                  <div className="w-full h-3 bg-blue-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500" style={{ width: '100%' }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="font-semibold text-gray-600">Pagaron</span>
+                    <span className="font-bold text-[#1a1a1a]">{stats?.conversion_funnel.pagaron ?? 0}</span>
+                  </div>
+                  <div className="w-full h-3 bg-emerald-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${funnelPagaronPct}%` }} />
+                  </div>
+                </div>
+                <div className="pt-3 border-t border-gray-100">
+                  <p className="text-xs text-gray-500">Conversión total</p>
+                  <p className="text-2xl font-bold text-[#1a1a1a]">{stats?.conversion_funnel.conversion_pct ?? 0}%</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Cobranza salud */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <div className="mb-4">
+              <h3 className="font-bold text-[#1a1a1a]">Salud de cobranza</h3>
+              <p className="text-xs text-gray-400">Cuotas en todas las empresas</p>
+            </div>
+            {loading || cobranzaTotal === 0 ? (
+              <div className="text-gray-400 text-sm py-8 text-center">Sin cuotas registradas</div>
+            ) : stats && (
+              <div className="space-y-3">
+                <div className="rounded-xl bg-emerald-50 px-3 py-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-emerald-700">Pagadas</span>
+                  <span className="text-sm font-bold text-emerald-700">
+                    {stats.cobranza_salud.pagados} <span className="text-xs font-medium opacity-70">({cobranzaPct(stats.cobranza_salud.pagados)}%)</span>
+                  </span>
+                </div>
+                <div className="rounded-xl bg-amber-50 px-3 py-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-amber-700">Pendientes</span>
+                  <span className="text-sm font-bold text-amber-700">
+                    {stats.cobranza_salud.pendientes} <span className="text-xs font-medium opacity-70">({cobranzaPct(stats.cobranza_salud.pendientes)}%)</span>
+                  </span>
+                </div>
+                <div className="rounded-xl bg-red-50 px-3 py-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-red-700">Vencidas</span>
+                  <span className="text-sm font-bold text-red-700">
+                    {stats.cobranza_salud.vencidos} <span className="text-xs font-medium opacity-70">({cobranzaPct(stats.cobranza_salud.vencidos)}%)</span>
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Ingresos por mes (mini bar chart) */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <div className="mb-4">
+              <h3 className="font-bold text-[#1a1a1a]">Ingresos SaaS / mes</h3>
+              <p className="text-xs text-gray-400">USD, últimos 6 meses</p>
+            </div>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={ingresosChart} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="mes" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false}
+                    tickFormatter={(v) => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} />
+                  <Tooltip
+                    cursor={{ fill: '#fef3c7', opacity: 0.3 }}
+                    contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
+                    formatter={(v) => [formatUSD(Number(v) || 0), 'Ingresos']}
+                  />
+                  <Bar dataKey="monto" fill="#d4a843" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Top empresas + Empresas dormidas */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy size={18} className="text-[#d4a843]" />
+              <h3 className="font-bold text-[#1a1a1a]">Top 5 empresas por uso</h3>
+            </div>
+            {loading ? <div className="text-gray-400 text-sm">—</div> :
+             topEmpresas.length === 0 ? <div className="text-gray-400 text-sm py-4 text-center">Sin datos aún</div> :
+             <div className="divide-y divide-gray-50">
+               {topEmpresas.map((emp, i) => (
+                 <div key={emp.id} className="flex items-center justify-between py-2.5">
+                   <div className="flex items-center gap-3 min-w-0">
+                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                       i === 0 ? 'bg-amber-100 text-[#d4a843]' :
+                       i === 1 ? 'bg-gray-100 text-gray-500'  :
+                       i === 2 ? 'bg-orange-50 text-orange-500' :
+                                 'bg-gray-50 text-gray-400'
+                     }`}>{i + 1}</span>
+                     <div className="min-w-0">
+                       <div className="font-semibold text-sm text-[#1a1a1a] truncate">{emp.nombre}</div>
+                       <div className="text-xs text-gray-400 truncate">{emp.email ?? '—'}</div>
+                     </div>
+                   </div>
+                   <div className="text-right shrink-0 ml-2">
+                     <div className="text-sm font-bold text-[#1a1a1a]">{emp.total_ventas} ventas</div>
+                     <div className="text-xs text-gray-400">{emp.total_lotes} lotes</div>
+                   </div>
+                 </div>
+               ))}
+             </div>}
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle size={18} className="text-red-500" />
+              <h3 className="font-bold text-[#1a1a1a]">Empresas en riesgo</h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">Pagaron pero no han cargado ni un lote o venta</p>
+            {loading ? <div className="text-gray-400 text-sm">—</div> :
+             empresasDormidas.length === 0 ? (
+               <div className="rounded-xl bg-emerald-50 px-4 py-6 text-center">
+                 <p className="text-sm font-semibold text-emerald-700">🎉 Todas las empresas pagas están activas</p>
+                 <p className="text-xs text-emerald-600 mt-1">Buen onboarding</p>
+               </div>
+             ) :
+             <div className="divide-y divide-gray-50">
+               {empresasDormidas.map((emp) => (
+                 <div key={emp.id} className="flex items-center justify-between py-2.5">
+                   <div className="min-w-0">
+                     <div className="font-semibold text-sm text-[#1a1a1a] truncate">{emp.nombre}</div>
+                     <div className="text-xs text-gray-400 truncate">{emp.email ?? 'Sin email'}</div>
+                   </div>
+                   <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-50 text-red-600 shrink-0 ml-2">
+                     Sin actividad
+                   </span>
+                 </div>
+               ))}
+             </div>}
           </div>
         </div>
 
@@ -372,7 +579,7 @@ export default function AdminPage() {
                     </td>
                     <td className="px-4 py-3 text-center text-gray-700">{emp.total_usuarios}</td>
                     <td className="px-4 py-3 text-center text-gray-700">{emp.total_lotes}</td>
-                    <td className="px-4 py-3 text-center text-gray-700">{emp.total_contratos}</td>
+                    <td className="px-4 py-3 text-center text-gray-700">{emp.total_ventas}</td>
                     <td className="px-4 py-3">
                       <button onClick={() => openEdit(emp)}
                         className="text-xs text-[#d4a843] font-semibold hover:underline">
