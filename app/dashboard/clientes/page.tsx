@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { Eye, X, TableProperties, RefreshCw, Upload, FileText, CheckCircle2 } from 'lucide-react';
 import { isReadOnly } from '@/lib/auth';
 import { useDialog } from '@/lib/useDialog';
-import { useUploadThing } from '@/lib/uploadthing';
+import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 
 /* ── Types ─────────────────────────────────────────────────── */
 type Entidad = 'Banrural' | 'Industrial' | 'GT' | 'BAC';
@@ -64,17 +64,17 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
   const [liqUploading, setLiqUploading] = useState(false);
   const { showAlert, showConfirm, DialogJSX: PlanDialogJSX } = useDialog();
 
-  const { startUpload: startUploadLiq } = useUploadThing('comprobantePago', {
-    onUploadBegin: () => setLiqUploading(true),
-    onClientUploadComplete: (res) => {
+  async function subirComprobanteLiq(file: File) {
+    setLiqUploading(true);
+    try {
+      const { url } = await uploadFile(file);
+      setLiqComprobanteUrl(url);
+    } catch (e: any) {
+      showAlert(e?.message ?? 'Error al subir el comprobante');
+    } finally {
       setLiqUploading(false);
-      if (res?.[0]) setLiqComprobanteUrl(res[0].ufsUrl);
-    },
-    onUploadError: () => {
-      setLiqUploading(false);
-      showAlert('Error al subir el comprobante');
-    },
-  });
+    }
+  }
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -338,7 +338,7 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
                   {liqComprobanteUrl ? (
                     <div className="flex items-center gap-2 border border-emerald-200 bg-emerald-50 rounded-xl px-3 py-2.5">
                       <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                      <a href={liqComprobanteUrl} target="_blank" rel="noopener noreferrer"
+                      <a href={resolveFileUrl(liqComprobanteUrl)} target="_blank" rel="noopener noreferrer"
                         className="text-sm text-emerald-700 font-medium underline truncate flex-1">
                         Ver comprobante
                       </a>
@@ -367,11 +367,7 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
                         className="hidden"
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
-                          if (file) {
-                            const { compressImageIfLarge } = await import('@/lib/compressImage');
-                            const toUpload = await compressImageIfLarge(file);
-                            await startUploadLiq([toUpload]);
-                          }
+                          if (file) await subirComprobanteLiq(file);
                           e.target.value = '';
                         }}
                       />
@@ -606,17 +602,17 @@ function PagarCuotaModal({ pago, saving, onClose, onConfirm }: {
   const [uploading, setUploading] = useState(false);
   const { showAlert: showAlertCuota, DialogJSX: PagarDialogJSX } = useDialog();
 
-  const { startUpload } = useUploadThing('comprobantePago', {
-    onUploadBegin: () => setUploading(true),
-    onClientUploadComplete: (res) => {
+  async function subirComprobanteCuota(file: File) {
+    setUploading(true);
+    try {
+      const { url } = await uploadFile(file);
+      setComprobanteUrl(url);
+    } catch (e: any) {
+      showAlertCuota(e?.message ?? 'Error al subir el archivo. Verifica que sea imagen o PDF.');
+    } finally {
       setUploading(false);
-      if (res?.[0]) setComprobanteUrl(res[0].ufsUrl);
-    },
-    onUploadError: () => {
-      setUploading(false);
-      showAlertCuota('Error al subir el archivo. Verifica que sea imagen o PDF y menor a 8 MB.');
-    },
-  });
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
@@ -658,7 +654,7 @@ function PagarCuotaModal({ pago, saving, onClose, onConfirm }: {
               {comprobanteUrl ? (
                 <div className="flex items-center gap-2 border border-green-200 bg-green-50 rounded-xl px-3 py-2.5">
                   <CheckCircle2 size={14} className="text-green-600 shrink-0" />
-                  <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                  <a href={resolveFileUrl(comprobanteUrl)} target="_blank" rel="noopener noreferrer"
                     className="text-sm text-green-700 font-medium underline truncate flex-1">
                     Ver comprobante
                   </a>
@@ -687,11 +683,7 @@ function PagarCuotaModal({ pago, saving, onClose, onConfirm }: {
                     className="hidden"
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
-                      if (file) {
-                        const { compressImageIfLarge } = await import('@/lib/compressImage');
-                        const toUpload = await compressImageIfLarge(file);
-                        await startUpload([toUpload]);
-                      }
+                      if (file) await subirComprobanteCuota(file);
                       e.target.value = '';
                     }}
                   />
@@ -783,24 +775,18 @@ function ClienteModal({
 
   const tieneEnganche = engancheNum > 0;
 
-  const { startUpload } = useUploadThing('comprobantePago', {
-    onUploadBegin: () => setUploadingCompro(true),
-    onClientUploadComplete: (res) => {
-      setUploadingCompro(false);
-      if (res?.[0]) setComprobanteUrl(res[0].ufsUrl);
-    },
-    onUploadError: () => {
-      setUploadingCompro(false);
-      showAlert('Error al subir el archivo. Verifica que sea PDF o imagen y menor a 8 MB.');
-    },
-  });
-
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const { compressImageIfLarge } = await import('@/lib/compressImage');
-    const toUpload = await compressImageIfLarge(file);
-    startUpload([toUpload]);
+    setUploadingCompro(true);
+    try {
+      const { url } = await uploadFile(file);
+      setComprobanteUrl(url);
+    } catch (e: any) {
+      showAlert(e?.message ?? 'Error al subir el archivo. Verifica que sea PDF o imagen.');
+    } finally {
+      setUploadingCompro(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -1004,7 +990,7 @@ function ClienteModal({
                 {comprobanteUrl ? (
                   <div className="flex items-center gap-2 border border-green-200 bg-green-50 rounded-xl px-3 py-2.5">
                     <FileText size={14} className="text-green-600 shrink-0" />
-                    <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                    <a href={resolveFileUrl(comprobanteUrl)} target="_blank" rel="noopener noreferrer"
                       className="text-sm text-green-700 font-medium underline truncate flex-1">
                       Ver comprobante
                     </a>

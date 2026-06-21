@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 import { isReadOnly } from '@/lib/auth';
-import { useUploadThing } from '@/lib/uploadthing';
+import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 import { useDialog } from '@/lib/useDialog';
 
 /* ── Types ─────────────────────────────────────────────────── */
@@ -146,17 +146,17 @@ function PagoModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showAlert, DialogJSX: PagoDialogJSX } = useDialog();
 
-  const { startUpload } = useUploadThing('comprobantePago', {
-    onUploadBegin: () => setUploading(true),
-    onClientUploadComplete: (res) => {
+  async function handleSubirComprobante(file: File) {
+    setUploading(true);
+    try {
+      const { url } = await uploadFile(file);
+      setComprobanteUrl(url);
+    } catch (e: any) {
+      showAlert(e?.message ?? 'Error al subir el archivo');
+    } finally {
       setUploading(false);
-      if (res?.[0]) setComprobanteUrl(res[0].ufsUrl);
-    },
-    onUploadError: () => {
-      setUploading(false);
-      showAlert('Error al subir el archivo');
-    },
-  });
+    }
+  }
   const [fechaPago, setFechaPago] = useState(
     pago?.fecha_pago ?? new Date().toISOString().split('T')[0]
   );
@@ -333,7 +333,7 @@ function PagoModal({
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-green-600 shrink-0">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                <a href={resolveFileUrl(comprobanteUrl)} target="_blank" rel="noopener noreferrer"
                   className="text-sm text-green-700 font-medium underline truncate flex-1">
                   Ver comprobante
                 </a>
@@ -349,11 +349,7 @@ function PagoModal({
                   className="hidden"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
-                    if (file) {
-                      const { compressImageIfLarge } = await import('@/lib/compressImage');
-                      const toUpload = await compressImageIfLarge(file);
-                      await startUpload([toUpload]);
-                    }
+                    if (file) await handleSubirComprobante(file);
                     e.target.value = '';
                   }}
                 />

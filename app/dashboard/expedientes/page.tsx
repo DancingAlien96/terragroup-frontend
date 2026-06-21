@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { FileText, Upload, Trash2, ExternalLink, FolderOpen, Search, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { isReadOnly } from '@/lib/auth';
-import { useUploadThing } from '@/lib/uploadthing';
+import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 import { useDialog } from '@/lib/useDialog';
 
 /* â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -30,47 +30,15 @@ function fmtDate(d: string) {
 
 /* â”€â”€ UploadPanel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const MAX_DOCS_POR_CLIENTE = 3;
-const MAX_PDF_BYTES        = 4 * 1024 * 1024;       // Límite final de UploadThing
-const COMPRESS_THRESHOLD   = 4 * 1024 * 1024;       // Si el archivo pasa esto, intentar comprimir
 
 function UploadPanel({ clienteId, docsCount, onUploaded }: { clienteId: number; docsCount: number; onUploaded: () => void }) {
   const readOnly = isReadOnly();
   const [nombre, setNombre]       = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving]       = useState(false);
-  const [compressing, setCompressing] = useState(false);
-  const [compressPct, setCompressPct] = useState(0);
   const [fileReady, setFileReady] = useState<File | null>(null);
   const fileInputRef              = useRef<HTMLInputElement>(null);
   const { showAlert, DialogJSX }  = useDialog();
-
-  const { startUpload } = useUploadThing('expedienteDoc', {
-    onUploadBegin: () => setUploading(true),
-    onClientUploadComplete: async (res) => {
-      setUploading(false);
-      if (!res?.[0]) return;
-      setSaving(true);
-      try {
-        await api.expedientes.create({
-          cliente_id:  clienteId,
-          nombre:      nombre.trim() || (fileReady?.name ?? 'Documento'),
-          archivo_url: res[0].ufsUrl,
-        });
-        setNombre('');
-        setFileReady(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        onUploaded();
-      } catch (e: any) {
-        showAlert(e.message ?? 'Error al guardar el expediente');
-      } finally {
-        setSaving(false);
-      }
-    },
-    onUploadError: () => {
-      setUploading(false);
-      showAlert('Error al subir el archivo. Verifica que sea PDF y menor a 16 MB.');
-    },
-  });
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -79,41 +47,42 @@ function UploadPanel({ clienteId, docsCount, onUploaded }: { clienteId: number; 
   }
 
   async function handleUpload() {
-    if (!fileReady || uploading || saving || compressing) return;
-    let toUpload = fileReady;
-    // Si pesa más de 4 MB, comprimir antes
-    if (toUpload.size > COMPRESS_THRESHOLD) {
-      setCompressing(true);
-      setCompressPct(0);
+    if (!fileReady || uploading || saving) return;
+    setUploading(true);
+    try {
+      const { url } = await uploadFile(fileReady);
+      setUploading(false);
+      setSaving(true);
       try {
-        const { compressPdf } = await import('@/lib/compressPdf');
-        const compressed = await compressPdf(toUpload, { onProgress: setCompressPct });
-        if (compressed.size > MAX_PDF_BYTES) {
-          showAlert(`El PDF sigue pesando ${(compressed.size / 1024 / 1024).toFixed(1)} MB después de comprimir. Reduce calidad o número de páginas.`);
-          return;
-        }
-        toUpload = compressed;
-      } catch (e: any) {
-        showAlert(`Error al comprimir el PDF: ${e.message ?? e}`);
-        return;
+        await api.expedientes.create({
+          cliente_id:  clienteId,
+          nombre:      nombre.trim() || (fileReady?.name ?? 'Documento'),
+          archivo_url: url,
+        });
+        setNombre('');
+        setFileReady(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        onUploaded();
+      } catch (err: any) {
+        showAlert(err?.message ?? 'Error al guardar el expediente');
       } finally {
-        setCompressing(false);
+        setSaving(false);
       }
+    } catch (err: any) {
+      setUploading(false);
+      showAlert(err?.message ?? 'Error al subir el archivo. Verifica que sea PDF y menor a 4 MB.');
     }
-    await startUpload([toUpload]);
   }
 
   if (readOnly) return null;
 
-  const busy = uploading || saving || compressing;
+  const busy = uploading || saving;
   const limiteAlcanzado = docsCount >= MAX_DOCS_POR_CLIENTE;
-  const labelBoton = compressing
-    ? `Comprimiendo… ${Math.round(compressPct)}%`
-    : uploading
-      ? 'Subiendo...'
-      : saving
-        ? 'Guardando...'
-        : 'Subir';
+  const labelBoton = uploading
+    ? 'Subiendo...'
+    : saving
+      ? 'Guardando...'
+      : 'Subir';
 
   if (limiteAlcanzado) {
     return (
@@ -195,7 +164,7 @@ function DocCard({ doc, onDelete, readOnly }: { doc: Expediente; onDelete: (id: 
       </div>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <a
-          href={doc.archivoUrl}
+          href={resolveFileUrl(doc.archivoUrl)}
           target="_blank"
           rel="noopener noreferrer"
           className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
