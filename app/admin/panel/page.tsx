@@ -12,7 +12,6 @@ interface EmpresaRow {
   plan_nombre: string;
   plan_id: number;
   activo: boolean;
-  fecha_vence: string | null;
   total_usuarios: number;
   total_lotes: number;
   total_contratos: number;
@@ -48,7 +47,6 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [editModal, setEditModal] = useState<EmpresaRow | null>(null);
   const [editPlanId, setEditPlanId] = useState<number>(1);
-  const [editFechaVence, setEditFechaVence] = useState<string>('');
   const [editNombre, setEditNombre] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [saving, setSaving] = useState(false);
@@ -96,7 +94,6 @@ export default function AdminPage() {
   function openEdit(row: EmpresaRow) {
     setEditModal(row);
     setEditPlanId(row.plan_id);
-    setEditFechaVence(row.fecha_vence ? row.fecha_vence.slice(0, 10) : '');
     setEditNombre(row.nombre);
     setEditEmail(row.email ?? '');
   }
@@ -109,7 +106,6 @@ export default function AdminPage() {
         api.empresas.update(editModal.id, {
           nombre: editNombre,
           email: editEmail || undefined,
-          fecha_vence: editFechaVence || undefined,
         }),
         editPlanId !== editModal.plan_id ? api.empresas.changePlan(editModal.id, editPlanId) : Promise.resolve(),
       ]);
@@ -189,7 +185,7 @@ export default function AdminPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {['#', 'Empresa', 'Plan', 'Estado', 'Vence', 'Usuarios', 'Lotes', 'Contratos', 'Acciones'].map(h => (
+                {['#', 'Empresa', 'Plan', 'Estado', 'Usuarios', 'Lotes', 'Contratos', 'Acciones'].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">
                     {h}
                   </th>
@@ -220,9 +216,6 @@ export default function AdminPage() {
                       }`}>
                       {emp.activo ? 'Activo' : 'Inactivo'}
                     </button>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                    {emp.fecha_vence ? new Date(emp.fecha_vence).toLocaleDateString('es-MX') : '—'}
                   </td>
                   <td className="px-4 py-3 text-center text-gray-700">{emp.total_usuarios}</td>
                   <td className="px-4 py-3 text-center text-gray-700">{emp.total_lotes}</td>
@@ -266,14 +259,6 @@ export default function AdminPage() {
                   <option key={p.id} value={p.id}>{p.nombre} — ${p.precio}/mes</option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
-                Fecha de vencimiento / expiración
-              </label>
-              <input type="date" value={editFechaVence} onChange={e => setEditFechaVence(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             </div>
 
             <div className="flex gap-3 pt-2">
