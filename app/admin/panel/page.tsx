@@ -124,7 +124,7 @@ export default function AdminPage() {
   }
 
   const formatMoney = (val: number) =>
-    new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(val);
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
 
   const planBadge: Record<string, string> = {
     basico:      'bg-gray-100 text-gray-600',
