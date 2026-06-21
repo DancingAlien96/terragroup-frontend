@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Eye, EyeOff } from 'lucide-react';
 import { logout, setStoredToken } from '@/lib/auth';
 
@@ -59,10 +60,8 @@ export default function AdminLoginPage() {
 
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#d4a843]/10 border border-[#d4a843]/20 mb-4">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-[#d4a843]">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-[#d4a843]/10 border border-[#d4a843]/20 mb-4 overflow-hidden">
+            <Image src="/logo.png" alt="TerraGroup" width={64} height={64} priority className="object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Terra<span className="text-[#d4a843]">Group</span>
