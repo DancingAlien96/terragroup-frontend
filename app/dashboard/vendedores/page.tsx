@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { isReadOnly } from '@/lib/auth';
+import { LIMITS } from '@/lib/schemaLimits';
+import { useDialog } from '@/lib/useDialog';
 
 /* ── Types ─────────────────────────────────────────────────── */
 interface Vendedor {
@@ -99,31 +101,37 @@ function VendedorModal({
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo *</label>
             <input value={form.nombre} onChange={e => set('nombre', e.target.value)} required
+              maxLength={LIMITS.vendedor.nombre}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">NIT</label>
             <input value={form.nit} onChange={e => set('nit', e.target.value)} placeholder="Ej. 123456-7"
+              maxLength={LIMITS.vendedor.nit}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label>
             <input value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="Ej. 5555-1234"
+              maxLength={LIMITS.vendedor.telefono}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
             <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
+              maxLength={LIMITS.vendedor.email}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">DPI / Identidad</label>
             <input value={form.dpi} onChange={e => set('dpi', e.target.value)} placeholder="Ej. 1234 56789 0101"
+              maxLength={LIMITS.vendedor.dpi}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Dirección</label>
             <input value={form.direccion} onChange={e => set('direccion', e.target.value)}
+              maxLength={LIMITS.vendedor.direccion}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
           <div className="col-span-2 flex gap-3 mt-2">
@@ -159,6 +167,7 @@ function ComisionModal({
   const emptyForm = { descripcion_lote: '', valor_lote: '', porcentaje: '', fecha_venta: today };
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const { showAlert, showConfirm, DialogJSX } = useDialog();
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const montoCalculado =
@@ -225,10 +234,13 @@ function ComisionModal({
     }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm('¿Eliminar esta venta?')) return;
-    try { await api.vendedores.comisiones.delete(vendedor.id, id); load(); }
-    catch (err: any) { alert(err.message ?? 'Error'); }
+  async function handleDelete(c: Comision) {
+    if (!await showConfirm('¿Eliminar esta venta?', {
+      description: `Lote: ${c.descripcion_lote}. Esta acción no se puede deshacer.`,
+      danger: true, confirmLabel: 'Eliminar',
+    })) return;
+    try { await api.vendedores.comisiones.delete(vendedor.id, c.id); load(); }
+    catch (err: any) { showAlert(err.message ?? 'Error'); }
   }
 
   const totalComision = comisiones.reduce((s, c) => s + Number(c.monto_comision), 0);
@@ -258,6 +270,7 @@ function ComisionModal({
                 <label className="block text-xs font-medium text-gray-600 mb-1">Descripción del lote *</label>
                 <input value={form.descripcion_lote} onChange={e => set('descripcion_lote', e.target.value)} required
                   placeholder="Ej. Lote 502 Manzana B"
+                  maxLength={255}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
               </div>
               <div>
@@ -345,7 +358,7 @@ function ComisionModal({
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                           </svg>
                         </button>
-                        <button onClick={() => handleDelete(c.id)} title="Eliminar"
+                        <button onClick={() => handleDelete(c)} title="Eliminar"
                           className="p-1 text-gray-300 hover:text-red-500 transition-colors">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
@@ -361,6 +374,7 @@ function ComisionModal({
           )}
         </div>
       </div>
+      {DialogJSX}
     </div>
   );
 }
@@ -384,10 +398,15 @@ export default function VendedoresPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleDelete(id: number) {
-    if (!confirm('¿Eliminar este vendedor? También se eliminarán sus ventas registradas.')) return;
-    try { await api.vendedores.delete(id); load(); }
-    catch (err: any) { alert(err.message ?? 'Error'); }
+  const { showAlert, showConfirm, DialogJSX } = useDialog();
+
+  async function handleDelete(v: Vendedor) {
+    if (!await showConfirm(`¿Eliminar a "${v.nombre}"?`, {
+      description: 'También se eliminarán sus ventas registradas. Esta acción no se puede deshacer.',
+      danger: true, confirmLabel: 'Eliminar',
+    })) return;
+    try { await api.vendedores.delete(v.id); load(); }
+    catch (err: any) { showAlert(err.message ?? 'Error al eliminar'); }
   }
 
   const filtrados = vendedores.filter(v =>
@@ -412,6 +431,8 @@ export default function VendedoresPage() {
           onClose={() => { setComisionVendedor(null); load(); }}
         />
       )}
+      {DialogJSX}
+
 
       <div className="space-y-5 max-w-screen-xl">
         <div className="flex items-start justify-between gap-4">
@@ -545,7 +566,7 @@ export default function VendedoresPage() {
                           </button>
                           )}
                           {!readOnly && (
-                          <button onClick={() => handleDelete(v.id)} title="Eliminar"
+                          <button onClick={() => handleDelete(v)} title="Eliminar"
                             className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
@@ -600,7 +621,7 @@ export default function VendedoresPage() {
                     </button>
                     )}
                     {!readOnly && (
-                    <button onClick={() => handleDelete(v.id)} title="Eliminar"
+                    <button onClick={() => handleDelete(v)} title="Eliminar"
                       className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>

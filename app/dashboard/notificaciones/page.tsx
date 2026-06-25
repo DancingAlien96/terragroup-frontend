@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Send, XCircle, Clock, FileText, Check, Trash2, X } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useDialog } from '@/lib/useDialog';
 
 type TabView = 'historial' | 'plantillas';
 
@@ -37,6 +38,7 @@ export default function NotificacionesPage() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ usuario_id: '', titulo: '', mensaje: '' });
   const [saving, setSaving] = useState(false);
+  const { showAlert, showConfirm, DialogJSX } = useDialog();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,7 +64,7 @@ export default function NotificacionesPage() {
       setShowModal(false);
       setForm({ usuario_id: '', titulo: '', mensaje: '' });
       load();
-    } catch (e: unknown) { alert((e as Error).message); }
+    } catch (e: unknown) { showAlert((e as Error).message); }
     finally { setSaving(false); }
   };
 
@@ -72,9 +74,11 @@ export default function NotificacionesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('¿Eliminar esta notificación?')) return;
+    if (!await showConfirm('¿Eliminar esta notificación?', {
+      danger: true, confirmLabel: 'Eliminar',
+    })) return;
     try { await api.notificaciones.delete(id); load(); }
-    catch (e: unknown) { alert((e as Error).message); }
+    catch (e: unknown) { showAlert((e as Error).message); }
   };
 
   return (
@@ -285,6 +289,7 @@ export default function NotificacionesPage() {
           </div>
         </div>
       )}
+      {DialogJSX}
     </div>
   );
 }
