@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { FileText, Upload, Trash2, ExternalLink, FolderOpen, Search, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { isReadOnly } from '@/lib/auth';
+import { LIMITS } from '@/lib/schemaLimits';
 import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 import { useDialog } from '@/lib/useDialog';
 
@@ -108,6 +109,7 @@ function UploadPanel({ clienteId, docsCount, onUploaded }: { clienteId: number; 
           value={nombre}
           onChange={e => setNombre(e.target.value)}
           placeholder="Nombre del documento (ej. Contrato de compraventa)"
+          maxLength={LIMITS.expediente.nombre}
           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]"
         />
         <div className="flex gap-2">

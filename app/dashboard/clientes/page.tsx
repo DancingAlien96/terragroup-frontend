@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { Eye, X, TableProperties, RefreshCw, Upload, FileText, CheckCircle2 } from 'lucide-react';
 import { isReadOnly } from '@/lib/auth';
 import { useDialog } from '@/lib/useDialog';
+import { LIMITS } from '@/lib/schemaLimits';
 import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 
 /* ── Types ─────────────────────────────────────────────────── */
@@ -326,11 +327,13 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Referencia / N° comprobante</label>
                   <input type="text" value={liqReferencia} onChange={e => setLiqReferencia(e.target.value)} placeholder="Opcional"
+                    maxLength={LIMITS.pago.referencia}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
                   <input type="text" value={liqDescripcion} onChange={e => setLiqDescripcion(e.target.value)}
+                    maxLength={LIMITS.pago.descripcion}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                 </div>
                 <div>
@@ -647,6 +650,7 @@ function PagarCuotaModal({ pago, saving, onClose, onConfirm }: {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Referencia</label>
               <input type="text" value={referencia} onChange={e => setRef(e.target.value)} placeholder="Opcional"
+                maxLength={LIMITS.pago.referencia}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             </div>
             <div>
@@ -980,6 +984,7 @@ function ClienteModal({
                   </label>
                   <input type="text" value={numTransferencia} onChange={e => setNumTransferencia(e.target.value)}
                     placeholder={metodo === 'Cheque' ? 'Ej. CHQ-001234' : metodo === 'Depósito' ? 'Ej. BOL-567890' : 'Ej. 00123456'}
+                    maxLength={LIMITS.venta.numTransferencia}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
                 </div>
               )}

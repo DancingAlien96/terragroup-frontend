@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { isReadOnly } from '@/lib/auth';
 import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 import { useDialog } from '@/lib/useDialog';
+import { LIMITS } from '@/lib/schemaLimits';
 
 /* ── Types ─────────────────────────────────────────────────── */
 interface Cliente {
@@ -312,6 +313,7 @@ function PagoModal({
               </label>
               <input type="text" value={referencia} onChange={e => setReferencia(e.target.value)}
                 placeholder={metodo === 'Cheque' ? 'Ej. CHQ-001234' : 'Ej. BOL-567890'}
+                maxLength={LIMITS.pago.referencia}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             </div>
           )}
