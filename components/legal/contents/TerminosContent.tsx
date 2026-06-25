@@ -34,37 +34,64 @@ export default function TerminosContent() {
         correo y WhatsApp, entre otras funciones.
       </p>
 
-      <h2>4. Suscripción y pago</h2>
-      <h3>4.1. Modalidad de pago</h3>
+      <h2>4. Suscripción, período de prueba y pago</h2>
+      <h3>4.1. Período de prueba gratuito</h3>
       <p>
-        El acceso a la Plataforma se obtiene mediante el pago de una <strong>licencia única
-        de USD $2,000.00</strong> (dos mil dólares de los Estados Unidos de América), o el
-        equivalente en quetzales al tipo de cambio vigente al momento del pago. Esta cantidad
-        otorga acceso perpetuo al Servicio, sujeto a estos Términos.
+        TerraGroup ofrece a las nuevas Empresas Clientes un <strong>período de prueba
+        gratuito de catorce (14) días corridos</strong> a partir del momento en que se
+        registra y valida exitosamente una tarjeta de crédito o débito. Durante este
+        período no se realiza ningún cargo a la tarjeta. La Empresa Cliente tiene acceso
+        completo a las funcionalidades del Servicio.
       </p>
 
-      <h3>4.2. Procesamiento del pago</h3>
+      <h3>4.2. Cobro al finalizar el período de prueba</h3>
       <p>
-        Los pagos son procesados por <strong>Recurrente</strong>, pasarela de pagos autorizada
-        en Guatemala. TerraGroup no almacena información de tarjetas de crédito ni datos
-        bancarios. Los términos de Recurrente se aplican al momento del pago.
+        Al vencimiento del período de prueba, <strong>se cobrará automáticamente la
+        cantidad de USD $2,000.00</strong> (dos mil dólares de los Estados Unidos de
+        América), o el equivalente en quetzales al tipo de cambio vigente, a la tarjeta
+        registrada. Este pago da derecho al <strong>acceso perpetuo</strong> al Servicio,
+        sin cobros adicionales recurrentes.
       </p>
 
-      <h3>4.3. Activación de la cuenta</h3>
+      <h3>4.3. Cancelación durante el período de prueba</h3>
       <p>
-        La cuenta de la Empresa Cliente se activa automáticamente al confirmarse el pago. En
-        caso de demora o falla en la confirmación, TerraGroup activará la cuenta manualmente
-        dentro de un plazo razonable a solicitud de la Empresa Cliente, previa verificación
-        del pago.
+        La Empresa Cliente puede cancelar la suscripción <strong>en cualquier momento
+        antes del vencimiento del período de prueba sin costo alguno</strong>, desde el
+        panel de administración de su cuenta. Al cancelar, perderá acceso inmediato al
+        Servicio.
       </p>
 
-      <h3>4.4. Política de reembolsos</h3>
+      <h3>4.4. Procesamiento del pago</h3>
       <p>
-        Dado el carácter digital, descargable y configurable del Servicio, así como su
-        activación inmediata, <strong>los pagos no son reembolsables</strong> una vez la
-        cuenta haya sido activada y se haya accedido al Servicio. Casos excepcionales (fraude,
-        pago duplicado, falla técnica que impida el uso prolongado del Servicio sin remedio)
+        Los pagos son procesados por <strong>Recurrente</strong>, pasarela autorizada en
+        Guatemala. TerraGroup no almacena información de tarjetas ni datos bancarios. Al
+        registrar su tarjeta, la Empresa Cliente acepta también los términos de Recurrente.
+      </p>
+
+      <h3>4.5. Cobros fallidos</h3>
+      <p>
+        Si el cobro al finalizar el período de prueba falla (tarjeta sin fondos, vencida,
+        bloqueada, etc.), Recurrente reintentará automáticamente durante varios días.
+        Notificaremos a la Empresa Cliente por correo electrónico para que actualice su
+        método de pago. Si transcurren <strong>tres (3) días desde el primer intento
+        fallido sin regularizar</strong> el pago, TerraGroup podrá suspender el acceso.
+      </p>
+
+      <h3>4.6. Política de reembolsos</h3>
+      <p>
+        Dado el carácter digital del Servicio y la existencia del período de prueba gratuito
+        de 14 días para evaluar la idoneidad del Servicio, <strong>los pagos no son
+        reembolsables</strong> una vez efectuado el cobro tras el vencimiento del período de
+        prueba. Casos excepcionales (fraude, doble cobro, falla técnica grave sin remedio)
         serán evaluados caso por caso a discreción de TerraGroup.
+      </p>
+
+      <h3>4.7. Política anti-abuso del período de prueba</h3>
+      <p>
+        Cada persona natural o jurídica tiene derecho a <strong>un (1) único período de
+        prueba</strong> en la Plataforma. TerraGroup rechazará nuevos registros con un
+        correo electrónico que ya haya iniciado un período de prueba previamente,
+        independientemente de si éste fue cancelado, convertido a pago o expiró.
       </p>
 
       <h2>5. Cuenta y credenciales</h2>

@@ -59,7 +59,7 @@ export default function RegisterPage() {
         <span className="text-2xl font-bold text-[#1a1a1a] tracking-tight">
           Terra<span className="text-[#d4a843]">Group</span>
         </span>
-        <p className="text-sm text-gray-500 mt-1">Inversión única de $2,000 USD</p>
+        <p className="text-sm text-gray-500 mt-1">14 días gratis · Luego $2,000 USD</p>
       </div>
 
       {/* Stepper */}
@@ -127,10 +127,14 @@ export default function RegisterPage() {
             {/* Resumen del pago */}
             <div className="bg-[#fdf3d9]/40 border border-[#d4a843]/30 rounded-lg p-3 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-gray-700">Pagarás al continuar:</span>
+                <span className="text-gray-700">Período de prueba:</span>
+                <span className="font-bold text-[#1a1a1a]">14 días gratis</span>
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-gray-700">Luego se cobra:</span>
                 <span className="font-bold text-[#1a1a1a]">$2,000 USD</span>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Pago único — activa tu empresa al confirmarse.</p>
+              <p className="text-xs text-gray-500 mt-2">Vas a registrar tu tarjeta pero no se cobra nada hoy. Puedes cancelar gratis durante el trial.</p>
             </div>
 
             {[

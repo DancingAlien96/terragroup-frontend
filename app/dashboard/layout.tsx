@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getStoredUser, getStoredToken, logout, planAllows } from '@/lib/auth';
+import TrialBanner from '@/components/dashboard/TrialBanner';
 import type { AuthUser, Plan } from '@/types';
 
 /* ── Nav items with plan restriction ─────────────────────────── */
@@ -307,6 +308,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         </header>
+
+        {/* Trial / suscripción banner */}
+        <TrialBanner />
 
         {/* Page content */}
         <main className="flex-1 p-4 md:p-6 overflow-auto">{children}</main>

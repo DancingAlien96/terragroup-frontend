@@ -80,13 +80,15 @@ export const api = {
   },
 
   empresas: {
-    register:    (body: unknown) => request<any>('/api/empresas/register', { method: 'POST', body: JSON.stringify(body) }),
-    list:        () => request<any[]>('/api/empresas'),
-    stats:       () => request<any>('/api/empresas/stats'),
-    get:         (id: number) => request<any>(`/api/empresas/${id}`),
-    update:      (id: number, body: unknown) => request<any>(`/api/empresas/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-    toggle:      (id: number) => request<any>(`/api/empresas/${id}/toggle`, { method: 'PATCH' }),
-    changePlan:  (id: number, plan_id: number) => request<any>(`/api/empresas/${id}/plan`, { method: 'PATCH', body: JSON.stringify({ plan_id }) }),
+    register:                (body: unknown) => request<any>('/api/empresas/register', { method: 'POST', body: JSON.stringify(body) }),
+    list:                    () => request<any[]>('/api/empresas'),
+    stats:                   () => request<any>('/api/empresas/stats'),
+    get:                     (id: number) => request<any>(`/api/empresas/${id}`),
+    update:                  (id: number, body: unknown) => request<any>(`/api/empresas/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    toggle:                  (id: number) => request<any>(`/api/empresas/${id}/toggle`, { method: 'PATCH' }),
+    changePlan:              (id: number, plan_id: number) => request<any>(`/api/empresas/${id}/plan`, { method: 'PATCH', body: JSON.stringify({ plan_id }) }),
+    miSuscripcion:           () => request<any>('/api/empresas/mi-suscripcion'),
+    cancelarMiSuscripcion:   () => request<any>('/api/empresas/mi-suscripcion/cancelar', { method: 'POST' }),
   },
 
   planes: {
