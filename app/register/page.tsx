@@ -15,10 +15,12 @@ export default function RegisterPage() {
 
   const [empresa, setEmpresa] = useState({ nombre: '', email: '', telefono: '' });
   const [admin, setAdmin] = useState({ nombre: '', email: '', username: '', password: '', confirmPassword: '' });
+  const [aceptoTerminos, setAceptoTerminos] = useState(false);
 
   const canNextStep0 = empresa.nombre.trim().length >= 2;
   const canSubmit = admin.nombre && admin.email && admin.username &&
-    admin.password.length >= 6 && admin.password === admin.confirmPassword;
+    admin.password.length >= 6 && admin.password === admin.confirmPassword &&
+    aceptoTerminos;
 
   async function handleSubmit() {
     setLoading(true);
@@ -32,6 +34,7 @@ export default function RegisterPage() {
         email_admin:      admin.email,
         username_admin:   admin.username,
         password_admin:   admin.password,
+        acepto_terminos:  aceptoTerminos,
       });
       // Redirige al checkout de Recurrente. El backend creó la empresa
       // inactiva; el webhook la activa al confirmarse el pago.
@@ -165,6 +168,34 @@ export default function RegisterPage() {
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-2.5">{error}</div>
             )}
+
+            {/* Aceptación legal — requerida para continuar */}
+            <label className="flex items-start gap-2.5 cursor-pointer mt-1 select-none">
+              <input
+                type="checkbox"
+                checked={aceptoTerminos}
+                onChange={(e) => setAceptoTerminos(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#d4a843] focus:ring-2 focus:ring-[#d4a843]/50 cursor-pointer"
+              />
+              <span className="text-xs text-gray-600 leading-relaxed">
+                He leído y acepto los{' '}
+                <a href="/terminos" target="_blank" rel="noopener noreferrer"
+                  className="text-[#d4a843] font-semibold hover:underline">
+                  Términos y Condiciones
+                </a>
+                , la{' '}
+                <a href="/privacidad" target="_blank" rel="noopener noreferrer"
+                  className="text-[#d4a843] font-semibold hover:underline">
+                  Política de Privacidad
+                </a>
+                {' '}y el{' '}
+                <a href="/aviso-ia" target="_blank" rel="noopener noreferrer"
+                  className="text-[#d4a843] font-semibold hover:underline">
+                  Aviso sobre uso de IA
+                </a>
+                {' '}de TerraGroup.
+              </span>
+            </label>
 
             <div className="flex gap-3 mt-1">
               <button onClick={() => setStep(0)}
