@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
+import LegalModal, { type LegalTipo } from '@/components/legal/LegalModal';
 
 const STEPS = ['Empresa', 'Administrador'];
 
@@ -16,6 +17,7 @@ export default function RegisterPage() {
   const [empresa, setEmpresa] = useState({ nombre: '', email: '', telefono: '' });
   const [admin, setAdmin] = useState({ nombre: '', email: '', username: '', password: '', confirmPassword: '' });
   const [aceptoTerminos, setAceptoTerminos] = useState(false);
+  const [legalAbierto, setLegalAbierto] = useState<LegalTipo | null>(null);
 
   const canNextStep0 = empresa.nombre.trim().length >= 2;
   const canSubmit = admin.nombre && admin.email && admin.username &&
@@ -170,32 +172,33 @@ export default function RegisterPage() {
             )}
 
             {/* Aceptación legal — requerida para continuar */}
-            <label className="flex items-start gap-2.5 cursor-pointer mt-1 select-none">
+            <div className="flex items-start gap-2.5 mt-1">
               <input
+                id="acepto-terminos"
                 type="checkbox"
                 checked={aceptoTerminos}
                 onChange={(e) => setAceptoTerminos(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#d4a843] focus:ring-2 focus:ring-[#d4a843]/50 cursor-pointer"
+                className="mt-0.5 w-4 h-4 rounded border-gray-300 text-[#d4a843] focus:ring-2 focus:ring-[#d4a843]/50 cursor-pointer shrink-0"
               />
-              <span className="text-xs text-gray-600 leading-relaxed">
+              <label htmlFor="acepto-terminos" className="text-xs text-gray-600 leading-relaxed select-none cursor-pointer">
                 He leído y acepto los{' '}
-                <a href="/terminos" target="_blank" rel="noopener noreferrer"
+                <button type="button" onClick={() => setLegalAbierto('terminos')}
                   className="text-[#d4a843] font-semibold hover:underline">
                   Términos y Condiciones
-                </a>
+                </button>
                 , la{' '}
-                <a href="/privacidad" target="_blank" rel="noopener noreferrer"
+                <button type="button" onClick={() => setLegalAbierto('privacidad')}
                   className="text-[#d4a843] font-semibold hover:underline">
                   Política de Privacidad
-                </a>
+                </button>
                 {' '}y el{' '}
-                <a href="/aviso-ia" target="_blank" rel="noopener noreferrer"
+                <button type="button" onClick={() => setLegalAbierto('aviso-ia')}
                   className="text-[#d4a843] font-semibold hover:underline">
                   Aviso sobre uso de IA
-                </a>
+                </button>
                 {' '}de TerraGroup.
-              </span>
-            </label>
+              </label>
+            </div>
 
             <div className="flex gap-3 mt-1">
               <button onClick={() => setStep(0)}
@@ -217,6 +220,8 @@ export default function RegisterPage() {
         ¿Ya tienes cuenta?{' '}
         <Link href="/login" className="text-[#d4a843] font-semibold hover:underline">Inicia sesión</Link>
       </p>
+
+      <LegalModal tipo={legalAbierto} onClose={() => setLegalAbierto(null)} />
     </div>
   );
 }
