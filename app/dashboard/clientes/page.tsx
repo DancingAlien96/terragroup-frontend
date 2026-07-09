@@ -6,7 +6,6 @@ import { Eye, X, TableProperties, RefreshCw, Upload, FileText, CheckCircle2 } fr
 import { isReadOnly } from '@/lib/auth';
 import { useDialog } from '@/lib/useDialog';
 import { LIMITS } from '@/lib/schemaLimits';
-import { formatearApellidoPrimero, apellidoParaOrdenar } from '@/lib/nombreUtils';
 import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 
 /* ── Types ─────────────────────────────────────────────────── */
@@ -151,7 +150,7 @@ function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Plan de pagos</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{formatearApellidoPrimero(cliente.nombre_comprador)} · {cliente.descripcion_lote ?? '—'}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{cliente.nombre_comprador} · {cliente.descripcion_lote ?? '—'}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
         </div>
@@ -455,7 +454,7 @@ function DetalleModal({ cliente, onClose, onPagoActualizado }: {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">{formatearApellidoPrimero(cliente.nombre_comprador)}</h2>
+            <h2 className="text-lg font-bold text-gray-900">{cliente.nombre_comprador}</h2>
             <p className="text-xs text-gray-500 mt-0.5">{cliente.descripcion_lote ?? '—'}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100">
@@ -1088,14 +1087,10 @@ export default function ClientesPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Orden alfabético A→Z por apellido (últimos 2 words del nombre), insensible
-  // a acentos. La búsqueda sigue matcheando el nombre original.
-  const filtrados = clientes
-    .filter(c =>
-      c.nombre_comprador.toLowerCase().includes(busqueda.toLowerCase()) ||
-      (c.descripcion_lote ?? '').toLowerCase().includes(busqueda.toLowerCase()),
-    )
-    .sort((a, b) => apellidoParaOrdenar(a.nombre_comprador).localeCompare(apellidoParaOrdenar(b.nombre_comprador)));
+  const filtrados = clientes.filter(c =>
+    c.nombre_comprador.toLowerCase().includes(busqueda.toLowerCase()) ||
+    (c.descripcion_lote ?? '').toLowerCase().includes(busqueda.toLowerCase()),
+  );
 
   function openNew() { setEditCliente(null); setModal(true); }
   function openEdit(c: Cliente) { setEditCliente(c); setModal(true); }
@@ -1163,7 +1158,7 @@ export default function ClientesPage() {
                 </td></tr>
               ) : filtrados.map(c => (
                 <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-900">{formatearApellidoPrimero(c.nombre_comprador)}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{c.nombre_comprador}</td>
                   <td className="px-4 py-3 text-gray-600 max-w-[180px] truncate">{c.descripcion_lote ?? '—'}</td>
                   <td className="px-4 py-3 text-center text-gray-700">{c.num_cuotas}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-800">{fmt(c.valor_cuota)}</td>
@@ -1236,7 +1231,7 @@ export default function ClientesPage() {
             <div key={c.id} className="border-b border-gray-100 last:border-0 px-4 py-3 flex flex-col gap-2">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-gray-900 text-sm">{formatearApellidoPrimero(c.nombre_comprador)}</p>
+                  <p className="font-semibold text-gray-900 text-sm">{c.nombre_comprador}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{c.descripcion_lote ?? '—'}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
