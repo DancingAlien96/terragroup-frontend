@@ -6,6 +6,7 @@ import { isReadOnly } from '@/lib/auth';
 import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 import { useDialog } from '@/lib/useDialog';
 import { LIMITS } from '@/lib/schemaLimits';
+import { fmtDate, todayLocal } from '@/lib/fmtDate';
 
 /* ── Types ─────────────────────────────────────────────────── */
 interface Cliente {
@@ -39,12 +40,6 @@ interface Pago {
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(n);
-
-const fmtDate = (s: string | null) => {
-  if (!s) return '—';
-  const d = new Date(s);
-  return new Intl.DateTimeFormat('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Guatemala' }).format(d);
-};
 
 /* ── ClienteSelector ────────────────────────────────────────── */
 function ClienteSelector({
@@ -159,7 +154,7 @@ function PagoModal({
     }
   }
   const [fechaPago, setFechaPago] = useState(
-    pago?.fecha_pago ?? new Date().toISOString().split('T')[0]
+    pago?.fecha_pago ?? todayLocal()
   );
   const [saving, setSaving] = useState(false);
 
@@ -276,9 +271,9 @@ function PagoModal({
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de pago *</label>
             <input type="date" value={fechaPago} onChange={e => setFechaPago(e.target.value)} required
-              max={new Date().toISOString().split('T')[0]}
+              max={todayLocal()}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
-            {fechaPago < new Date().toISOString().split('T')[0] && (
+            {fechaPago < todayLocal() && (
               <p className="text-xs text-amber-600 mt-1">⚠️ Estás registrando un pago con fecha retroactiva</p>
             )}
           </div>

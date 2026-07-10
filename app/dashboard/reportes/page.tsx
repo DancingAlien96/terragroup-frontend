@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart2, Clock, Users, UserCheck, Download, CheckCircle2, TrendingUp, FileBarChart, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
+import { fmtDate } from '@/lib/fmtDate';
 
 /** Hoja "documento" para previsualizar cómo quedará el PDF. */
 function DocumentPaper({
@@ -84,10 +85,6 @@ const TIPOS_REPORTE = [
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', maximumFractionDigits: 0 }).format(n);
 
-function fmtDate(s: string) {
-  if (!s) return '—';
-  return new Intl.DateTimeFormat('es-GT', { timeZone: 'America/Guatemala', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(s));
-}
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);

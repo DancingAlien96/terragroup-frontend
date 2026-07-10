@@ -6,6 +6,7 @@ import { Eye, X, TableProperties, RefreshCw, Upload, FileText, CheckCircle2 } fr
 import { isReadOnly } from '@/lib/auth';
 import { useDialog } from '@/lib/useDialog';
 import { LIMITS } from '@/lib/schemaLimits';
+import { fmtDate, todayLocal } from '@/lib/fmtDate';
 import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 
 /* ── Types ─────────────────────────────────────────────────── */
@@ -43,11 +44,6 @@ function pmtMensual(montoFinanciado: number, tasaAnual: number, numCuotas: numbe
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(n);
-
-function fmtDate(d: string | null) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 /* ── PlanModal: tabla de amortización ───────────────────────── */
 function PlanModal({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
@@ -596,7 +592,7 @@ function PagarCuotaModal({ pago, saving, onClose, onConfirm }: {
   onClose: () => void;
   onConfirm: (p: any, datos: { monto: number; fecha_pago: string; metodo_pago: string; referencia: string; comprobante_url: string | null }) => void;
 }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
   const [monto, setMonto]       = useState(String(pago.monto));
   const [fecha, setFecha]       = useState(pago.fecha_vencimiento?.slice(0, 10) ?? today);
   const [metodo, setMetodo]     = useState('Transferencia');
@@ -724,7 +720,7 @@ function ClienteModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
 
   const [nombre, setNombre] = useState(cliente?.nombre_comprador ?? '');
   const [nit, setNit] = useState(cliente?.nit ?? '');

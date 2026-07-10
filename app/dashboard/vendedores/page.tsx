@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { isReadOnly } from '@/lib/auth';
 import { LIMITS } from '@/lib/schemaLimits';
+import { fmtDate, todayLocal, toInputDate } from '@/lib/fmtDate';
 import { useDialog } from '@/lib/useDialog';
 
 /* ── Types ─────────────────────────────────────────────────── */
@@ -34,10 +35,6 @@ interface Comision {
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(n);
 
-const fmtDate = (s: string | Date) => {
-  const d = new Date(typeof s === 'string' ? s.includes('T') ? s : s + 'T12:00:00' : String(s));
-  return isNaN(d.getTime()) ? String(s) : d.toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
 
 /* ── VendedorModal ──────────────────────────────────────────── */
 function VendedorModal({
@@ -162,7 +159,7 @@ function ComisionModal({
   const [loading, setLoading]       = useState(true);
   const [showForm, setShowForm]     = useState(false);
   const [editingId, setEditingId]   = useState<number | null>(null);
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocal();
 
   const emptyForm = { descripcion_lote: '', valor_lote: '', porcentaje: '', fecha_venta: today };
   const [form, setForm] = useState(emptyForm);
@@ -196,9 +193,7 @@ function ComisionModal({
       descripcion_lote: c.descripcion_lote,
       valor_lote:       String(c.valor_lote),
       porcentaje:       String(c.porcentaje),
-      fecha_venta:      typeof c.fecha_venta === 'string' && !c.fecha_venta.includes('T')
-        ? c.fecha_venta
-        : new Date(c.fecha_venta).toISOString().split('T')[0],
+      fecha_venta:      toInputDate(c.fecha_venta),
     });
     setShowForm(true);
   }

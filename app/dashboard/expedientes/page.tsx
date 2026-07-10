@@ -5,6 +5,7 @@ import { FileText, Upload, Trash2, ExternalLink, FolderOpen, Search, X } from 'l
 import { api } from '@/lib/api';
 import { isReadOnly } from '@/lib/auth';
 import { LIMITS } from '@/lib/schemaLimits';
+import { fmtDate } from '@/lib/fmtDate';
 import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 import { useDialog } from '@/lib/useDialog';
 
@@ -23,11 +24,6 @@ interface Expediente {
   createdAt: string;
 }
 
-function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('es-GT', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  });
-}
 
 /* â”€â”€ UploadPanel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const MAX_DOCS_POR_CLIENTE = 3;
