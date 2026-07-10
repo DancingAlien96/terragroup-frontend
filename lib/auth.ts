@@ -1,8 +1,11 @@
 import type { AuthUser, Plan } from '@/types';
 
+// Ranking usado por planAllows para el gate por sección del sidebar.
+// business y profesional (legacy) son equivalentes en jerarquía.
 const PLAN_RANK: Record<Plan, number> = {
-  basico: 1,
-  profesional: 2,
+  basico:      1,
+  business:    2,
+  profesional: 2,  // legacy, mismo rango que business
   empresarial: 3,
 };
 

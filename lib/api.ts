@@ -40,6 +40,10 @@ const ventas = crud('/api/ventas');
 export const api = {
   usuarios:      crud('/api/usuarios'),
   lotes:         crud('/api/lotes'),
+  proyectos: {
+    ...crud('/api/proyectos'),
+    limites: () => request<any>('/api/proyectos/limites'),
+  },
   propietarios:  crud('/api/propietarios'),
   pagos:         crud('/api/pagos'),
 

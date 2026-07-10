@@ -1,4 +1,6 @@
-export type Plan = 'basico' | 'profesional' | 'empresarial';
+// 'profesional' se conserva por retro-compat con datos legacy en BD.
+// El plan comercial actual es 'business'. 'empresarial' es interno/legacy.
+export type Plan = 'basico' | 'business' | 'profesional' | 'empresarial';
 export type Rol = 'superadmin' | 'admin' | 'vendedor' | 'supervisor';
 
 export interface AuthUser {

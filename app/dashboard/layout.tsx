@@ -22,6 +22,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    label: 'Proyectos',
+    href: '/dashboard/proyectos',
+    minPlan: 'basico' as Plan,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 21h18M3 7v14M21 7v14M6 21V11h4v10M14 21V11h4v10M3 7l9-4 9 4" />
+      </svg>
+    ),
+  },
+  {
     label: 'Clientes',
     href: '/dashboard/clientes',
     minPlan: 'basico' as Plan,
@@ -121,14 +131,16 @@ const NAV_ITEMS = [
 ];
 
 const PLAN_LABEL: Record<Plan, string> = {
-  basico: 'Básico',
-  profesional: 'Profesional',
+  basico:      'Básico',
+  business:    'Business',
+  profesional: 'Profesional',   // legacy
   empresarial: 'Empresarial',
 };
 
 const PLAN_COLOR: Record<Plan, string> = {
-  basico: 'bg-gray-100 text-gray-600',
-  profesional: 'bg-[#fdf3d9] text-[#92700a]',
+  basico:      'bg-gray-100 text-gray-600',
+  business:    'bg-[#fdf3d9] text-[#92700a]',
+  profesional: 'bg-[#fdf3d9] text-[#92700a]',   // legacy — mismo look que business
   empresarial: 'bg-[#1a1a1a] text-[#d4a843]',
 };
 

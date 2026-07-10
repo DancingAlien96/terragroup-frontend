@@ -1,0 +1,385 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { Layers, Plus, MapPin, MoreVertical, Edit2, Trash2, Power, X, AlertCircle } from 'lucide-react';
+import { api } from '@/lib/api';
+import { isReadOnly } from '@/lib/auth';
+import { useDialog } from '@/lib/useDialog';
+import { LIMITS } from '@/lib/schemaLimits';
+import { fmtDate } from '@/lib/fmtDate';
+
+interface Proyecto {
+  id:           number;
+  empresa_id:   number;
+  nombre:       string;
+  descripcion:  string | null;
+  ubicacion:    string | null;
+  activo:       boolean;
+  total_lotes:  number;
+  created_at:   string;
+  updated_at:   string;
+}
+
+interface Limites {
+  actuales:    number;
+  permitidos:  number;
+  puede_crear: boolean;
+}
+
+export default function ProyectosPage() {
+  const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
+  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+  const [limites,   setLimites]   = useState<Limites | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [modal,     setModal]     = useState(false);
+  const [editing,   setEditing]   = useState<Proyecto | null>(null);
+  const [menuOpen,  setMenuOpen]  = useState<number | null>(null);
+  const { showAlert, showConfirm, DialogJSX } = useDialog();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [list, lim] = await Promise.all([
+        api.proyectos.list(),
+        api.proyectos.limites(),
+      ]);
+      setProyectos(list as Proyecto[]);
+      setLimites(lim as Limites);
+    } catch (e: any) {
+      showAlert(e?.message ?? 'Error al cargar');
+    } finally {
+      setLoading(false);
+    }
+  }, [showAlert]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Cierra el menú de acciones al hacer click afuera
+  useEffect(() => {
+    if (menuOpen === null) return;
+    const onDoc = () => setMenuOpen(null);
+    document.addEventListener('click', onDoc);
+    return () => document.removeEventListener('click', onDoc);
+  }, [menuOpen]);
+
+  function openNew() { setEditing(null); setModal(true); }
+  function openEdit(p: Proyecto) { setEditing(p); setModal(true); setMenuOpen(null); }
+
+  async function handleToggleActivo(p: Proyecto) {
+    setMenuOpen(null);
+    if (!await showConfirm(
+      p.activo ? `¿Desactivar "${p.nombre}"?` : `¿Reactivar "${p.nombre}"?`,
+      {
+        description: p.activo
+          ? 'Los lotes existentes siguen visibles pero no podrás agregar nuevos hasta reactivarlo.'
+          : 'El proyecto volverá a estar disponible para nuevos lotes.',
+        confirmLabel: p.activo ? 'Desactivar' : 'Reactivar',
+      },
+    )) return;
+    try {
+      await api.proyectos.update(p.id, { activo: !p.activo });
+      load();
+    } catch (e: any) {
+      showAlert(e?.message ?? 'Error al actualizar');
+    }
+  }
+
+  async function handleDelete(p: Proyecto) {
+    setMenuOpen(null);
+    if (!await showConfirm(`¿Eliminar "${p.nombre}"?`, {
+      description: p.total_lotes > 0
+        ? `Este proyecto tiene ${p.total_lotes} lote(s). Debes eliminarlos antes o desactivarlo en vez de borrarlo.`
+        : 'Esta acción no se puede deshacer.',
+      danger: true, confirmLabel: 'Eliminar',
+    })) return;
+    try {
+      await api.proyectos.delete(p.id);
+      load();
+    } catch (e: any) {
+      showAlert(e?.message ?? 'No se pudo eliminar');
+    }
+  }
+
+  const usadoPct = limites && limites.permitidos > 0
+    ? Math.round((limites.actuales / limites.permitidos) * 100)
+    : 0;
+
+  return (
+    <>
+      {modal && (
+        <ProyectoModal
+          proyecto={editing}
+          onClose={() => { setModal(false); setEditing(null); }}
+          onSaved={() => { setModal(false); setEditing(null); load(); }}
+        />
+      )}
+
+      <div className="space-y-6 max-w-screen-xl">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-extrabold text-gray-900">Proyectos</h1>
+            <p className="text-sm text-gray-500">Terrenos divididos en lotes que gestiona tu empresa</p>
+          </div>
+          {!readOnly && (
+            <button
+              onClick={openNew}
+              disabled={loading || (limites !== null && !limites.puede_crear)}
+              title={limites && !limites.puede_crear ? 'Alcanzaste el límite de tu plan' : ''}
+              className="flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors shrink-0"
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              Nuevo proyecto
+            </button>
+          )}
+        </div>
+
+        {/* Contador de límites del plan */}
+        {limites && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">Uso del plan</p>
+                <p className="text-2xl font-bold text-[#1a1a1a] mt-1">
+                  {limites.actuales}
+                  <span className="text-base font-medium text-gray-400 ml-1">/ {limites.permitidos} proyectos</span>
+                </p>
+              </div>
+              {!limites.puede_crear && (
+                <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg text-xs font-semibold">
+                  <AlertCircle size={14} />
+                  Límite alcanzado
+                </div>
+              )}
+            </div>
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all ${usadoPct >= 100 ? 'bg-red-500' : usadoPct >= 80 ? 'bg-amber-500' : 'bg-[#d4a843]'}`}
+                style={{ width: `${Math.min(100, usadoPct)}%` }}
+              />
+            </div>
+            {!limites.puede_crear && (
+              <p className="text-xs text-gray-500 mt-3">
+                Para agregar más proyectos, actualiza tu plan o compra un proyecto extra por $50/mes.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Grid de proyectos */}
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center text-sm text-gray-400">
+            Cargando proyectos…
+          </div>
+        ) : proyectos.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-16 text-center">
+            <div className="w-14 h-14 rounded-full bg-[#fdf3d9] flex items-center justify-center mx-auto mb-3">
+              <Layers size={26} className="text-[#d4a843]" />
+            </div>
+            <p className="text-sm font-semibold text-gray-900">No tienes proyectos todavía</p>
+            <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
+              Un proyecto agrupa los lotes de un terreno. Crea el primero para empezar a registrar clientes.
+            </p>
+            {!readOnly && (
+              <button
+                onClick={openNew}
+                disabled={limites !== null && !limites.puede_crear}
+                className="mt-5 inline-flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-40 text-white font-semibold text-sm px-4 py-2 rounded-lg"
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                Crear proyecto
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {proyectos.map((p) => (
+              <div
+                key={p.id}
+                className={`relative bg-white rounded-2xl border shadow-sm overflow-hidden transition-all hover:shadow-md ${
+                  p.activo ? 'border-gray-100' : 'border-gray-200 opacity-70'
+                }`}
+              >
+                {/* Menú acciones */}
+                {!readOnly && (
+                  <div className="absolute top-3 right-3 z-10">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === p.id ? null : p.id); }}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                    {menuOpen === p.id && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-0 mt-1 w-44 bg-white border border-gray-100 rounded-lg shadow-lg py-1 z-20"
+                      >
+                        <button onClick={() => openEdit(p)}
+                          className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                          <Edit2 size={12} /> Editar
+                        </button>
+                        <button onClick={() => handleToggleActivo(p)}
+                          className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                          <Power size={12} /> {p.activo ? 'Desactivar' : 'Reactivar'}
+                        </button>
+                        <button onClick={() => handleDelete(p)}
+                          className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-100 mt-1 pt-2">
+                          <Trash2 size={12} /> Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="p-5">
+                  <div className="w-10 h-10 rounded-xl bg-[#fdf3d9] flex items-center justify-center mb-3">
+                    <Layers size={18} className="text-[#d4a843]" />
+                  </div>
+
+                  <h3 className="font-bold text-[#1a1a1a] text-base pr-6">{p.nombre}</h3>
+                  {!p.activo && (
+                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600 mt-1">Inactivo</span>
+                  )}
+
+                  {p.ubicacion && (
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
+                      <MapPin size={11} />
+                      {p.ubicacion}
+                    </p>
+                  )}
+
+                  {p.descripcion && (
+                    <p className="text-xs text-gray-600 mt-2 line-clamp-2">{p.descripcion}</p>
+                  )}
+                </div>
+
+                <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-[#1a1a1a] text-base">{p.total_lotes}</span>
+                    <span className="text-gray-500 ml-1">lote{p.total_lotes === 1 ? '' : 's'}</span>
+                  </div>
+                  <span className="text-gray-400">Creado {fmtDate(p.created_at)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {DialogJSX}
+    </>
+  );
+}
+
+/* ── Modal Crear/Editar ─────────────────────────────────────── */
+
+function ProyectoModal({
+  proyecto, onClose, onSaved,
+}: {
+  proyecto: Proyecto | null;
+  onClose:  () => void;
+  onSaved:  () => void;
+}) {
+  const [form, setForm] = useState({
+    nombre:      proyecto?.nombre       ?? '',
+    ubicacion:   proyecto?.ubicacion    ?? '',
+    descripcion: proyecto?.descripcion  ?? '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    if (form.nombre.trim().length < 2) {
+      setError('El nombre debe tener al menos 2 caracteres');
+      return;
+    }
+    setSaving(true);
+    const body = {
+      nombre:      form.nombre.trim(),
+      ubicacion:   form.ubicacion.trim() || null,
+      descripcion: form.descripcion.trim() || null,
+    };
+    try {
+      if (proyecto) await api.proyectos.update(proyecto.id, body);
+      else          await api.proyectos.create(body);
+      onSaved();
+    } catch (e: any) {
+      setError(e?.message ?? 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">{proyecto ? 'Editar proyecto' : 'Nuevo proyecto'}</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Un proyecto agrupa lotes de un mismo terreno</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+              Nombre del proyecto <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.nombre}
+              onChange={(e) => set('nombre', e.target.value)}
+              maxLength={LIMITS.proyecto.nombre}
+              placeholder="Ej. Lotificación El Mirador"
+              required
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Ubicación</label>
+            <input
+              type="text"
+              value={form.ubicacion}
+              onChange={(e) => set('ubicacion', e.target.value)}
+              maxLength={LIMITS.proyecto.ubicacion}
+              placeholder="Ej. Km 25 Carretera al Salvador"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Descripción</label>
+            <textarea
+              value={form.descripcion}
+              onChange={(e) => set('descripcion', e.target.value)}
+              maxLength={LIMITS.proyecto.descripcion}
+              placeholder="Notas o características del proyecto"
+              rows={3}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] resize-none"
+            />
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-2.5">{error}</div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} disabled={saving}
+              className="flex-1 border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl hover:bg-gray-50 disabled:opacity-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-xl">
+              {saving ? 'Guardando…' : proyecto ? 'Guardar cambios' : 'Crear proyecto'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

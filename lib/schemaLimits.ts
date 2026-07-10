@@ -52,4 +52,9 @@ export const LIMITS = {
   expediente: {
     nombre: 200,
   },
+  proyecto: {
+    nombre:      150,
+    ubicacion:   255,
+    descripcion: 1000,  // TEXT en BD, limitamos visualmente
+  },
 } as const;
