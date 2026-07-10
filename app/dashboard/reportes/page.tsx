@@ -38,6 +38,40 @@ function DocumentPaper({
 type TipoReporte = 'general' | 'cobranza' | 'cartera' | 'clientes' | 'vendedores' | 'comisiones_mes';
 type FormatoExport = 'PDF' | 'Excel' | 'CSV';
 
+// Filas que caben aproximadamente en una hoja A4 con nuestro layout compacto.
+// Solo afecta la VISTA PREVIA — el PDF descargado incluye todas las filas.
+const PREVIEW_MAX_ROWS = 15;
+
+/**
+ * Escapa caracteres HTML peligrosos en cadenas que se interpolan al HTML
+ * del popup del PDF. Las cadenas provienen de datos del cliente (nombres
+ * de propietarios, descripciones de lotes, etc.) — sin escape, un valor
+ * como `<script>...</script>` en el nombre ejecutaría JS en el popup
+ * (same-origin, con acceso a localStorage). Prevención XSS.
+ */
+function escapeHtml(v: unknown): string {
+  const s = v == null ? '' : String(v);
+  return s
+    .replace(/&/g,  '&amp;')
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;')
+    .replace(/"/g,  '&quot;')
+    .replace(/'/g,  '&#39;');
+}
+
+/** Indicador "hay más filas al descargar" — aparece al final del preview. */
+function MoreRowsIndicator({ total, colSpan }: { total: number; colSpan: number }) {
+  const restantes = total - PREVIEW_MAX_ROWS;
+  if (restantes <= 0) return null;
+  return (
+    <tr className="border-t border-dashed border-gray-300 bg-gray-50/60">
+      <td colSpan={colSpan} className="py-2 px-1 text-center text-[10px] sm:text-[8px] text-gray-500 italic">
+        + {restantes} registro(s) más se incluirán en el PDF descargado
+      </td>
+    </tr>
+  );
+}
+
 const TIPOS_REPORTE = [
   { id: 'general'        as TipoReporte, label: 'Resumen Ejecutivo',           icon: FileBarChart },
   { id: 'cobranza'       as TipoReporte, label: 'Cobranza General',            icon: BarChart2 },
@@ -244,20 +278,20 @@ export default function ReportesPage() {
       : r.top_deudores.map((d: any) => {
           const colorDias = d.dias_mora > 90 ? '#dc2626' : d.dias_mora > 30 ? '#b8922e' : '#d4a843';
           return `<tr>
-            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6">${d.nombre}</td>
-            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;color:#6b7280">${d.lote}</td>
-            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right">${d.cuotas_vencidas}</td>
-            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:#dc2626">${fmt(d.monto_vencido)}</td>
-            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:${colorDias}">${d.dias_mora}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6">${escapeHtml(d.nombre)}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;color:#6b7280">${escapeHtml(d.lote)}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right">${Number(d.cuotas_vencidas)}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:#dc2626">${fmt(Number(d.monto_vencido))}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:${colorDias}">${Number(d.dias_mora)}</td>
           </tr>`;
         }).join('');
 
     const trVendedores = (r.top_vendedores ?? []).length === 0
       ? `<tr><td colspan="3" style="text-align:center;color:#9ca3af;padding:8px">Sin comisiones</td></tr>`
       : r.top_vendedores.map((v: any) => `<tr>
-          <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6">${v.nombre}</td>
-          <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right">${v.ventas}</td>
-          <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:#d4a843">${fmt(v.total_comisiones)}</td>
+          <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6">${escapeHtml(v.nombre)}</td>
+          <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right">${Number(v.ventas)}</td>
+          <td style="padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:#d4a843">${fmt(Number(v.total_comisiones))}</td>
         </tr>`).join('');
 
     const tendenciaHTML = !r.tendencia || r.tendencia.length === 0 ? '' : (() => {
@@ -267,7 +301,7 @@ export default function ReportesPage() {
         return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
           <div style="font-size:8px;font-weight:600;color:#6b7280">${fmt(Number(t.cobrado))}</div>
           <div style="width:100%;background:#d4a843;border-radius:2px 2px 0 0;height:${px}px"></div>
-          <span style="font-size:8px;color:#9ca3af">${t.mes}</span>
+          <span style="font-size:8px;color:#9ca3af">${escapeHtml(t.mes)}</span>
         </div>`;
       }).join('');
       return `<div style="margin-top:14px">
@@ -283,9 +317,9 @@ export default function ReportesPage() {
         <div style="border-bottom:1px solid #e5e7eb;padding-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
           <div>
             <p style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#b8922e;font-weight:700;margin:0">Resumen Ejecutivo</p>
-            <p style="font-size:18px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${r.empresa?.nombre ?? '\u2014'}</p>
+            <p style="font-size:18px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${escapeHtml(r.empresa?.nombre ?? '\u2014')}</p>
             <p style="font-size:10px;color:#9ca3af;margin:2px 0 0;text-transform:capitalize">
-              Plan ${r.empresa?.plan ?? '\u2014'}${r.empresa?.fecha_vence ? ' \u00B7 vence ' + fmtDate(r.empresa.fecha_vence) : ''}
+              Plan ${escapeHtml(r.empresa?.plan ?? '\u2014')}${r.empresa?.fecha_vence ? ' \u00B7 vence ' + escapeHtml(fmtDate(r.empresa.fecha_vence)) : ''}
             </p>
           </div>
           <p style="font-size:9px;color:#9ca3af;margin:0;white-space:nowrap">
@@ -375,25 +409,27 @@ export default function ReportesPage() {
   function buildSimpleReportHTML(label: string, headers: string[], rows: (string | number)[][]): string {
     const trHead = headers.map((h, i) => {
       const align = i === 0 ? 'left' : (typeof rows[0]?.[i] === 'number' ? 'right' : 'left');
-      return `<th style="text-align:${align};padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:9px;font-weight:500;color:#6b7280;text-transform:uppercase">${h}</th>`;
+      return `<th style="text-align:${align};padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:9px;font-weight:500;color:#6b7280;text-transform:uppercase">${escapeHtml(h)}</th>`;
     }).join('');
     const trBody = rows.length === 0
       ? `<tr><td colspan="${headers.length}" style="text-align:center;color:#9ca3af;padding:12px;font-size:10px">Sin datos</td></tr>`
       : rows.map((r) => `<tr>${r.map((c, i) => {
           const align = i === 0 ? 'left' : (typeof c === 'number' ? 'right' : 'left');
-          const v = typeof c === 'number' ? fmt(c) : c;
+          // Números se formatean (fmt() genera markup limitado y seguro),
+          // strings SIEMPRE se escapan porque pueden ser controlados por el usuario.
+          const v = typeof c === 'number' ? fmt(c) : escapeHtml(c);
           return `<td style="padding:5px 8px;border-bottom:1px solid #f3f4f6;text-align:${align};color:#374151;font-size:10px">${v}</td>`;
         }).join('')}</tr>`).join('');
     const fechaStr = new Date().toLocaleDateString('es-GT', { dateStyle: 'medium' });
     return `
       <div style="max-width:760px;margin:0 auto;background:white;padding:28px;color:#374151;font-size:11px;line-height:1.45;font-family:-apple-system,Segoe UI,Roboto,sans-serif">
-        <div style="border-bottom:1px solid #e5e7eb;padding-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div class="doc-header" style="border-bottom:1px solid #e5e7eb;padding-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
           <div>
-            <p style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#b8922e;font-weight:700;margin:0">${label}</p>
-            <p style="font-size:18px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${empresaNombre}</p>
+            <p style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#b8922e;font-weight:700;margin:0">${escapeHtml(label)}</p>
+            <p style="font-size:18px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${escapeHtml(empresaNombre)}</p>
             <p style="font-size:10px;color:#9ca3af;margin:2px 0 0">${rows.length} registro${rows.length === 1 ? '' : 's'}</p>
           </div>
-          <p style="font-size:9px;color:#9ca3af;margin:0;white-space:nowrap">${fechaStr}</p>
+          <p style="font-size:9px;color:#9ca3af;margin:0;white-space:nowrap">${escapeHtml(fechaStr)}</p>
         </div>
         <table style="width:100%;border-collapse:collapse">
           <thead><tr>${trHead}</tr></thead>
@@ -427,20 +463,33 @@ export default function ReportesPage() {
           } else {
             bodyHTML = buildSimpleReportHTML(title, headers, rows);
           }
-          win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+          win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title>
             <style>
               /* Forzar colores exactos al imprimir/guardar PDF — sin esto Chrome/Edge omiten fondos y atenúan */
               *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
               body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;padding:24px;background:#f3f4f6;margin:0}
-              @page{margin:14mm}
+              @page{
+                margin:14mm;
+                size:A4;
+              }
+              /* Paginación de tablas largas — el PDF descargado puede tener N hojas */
+              table{width:100%;border-collapse:collapse;page-break-inside:auto}
+              /* thead repetido en cada hoja para no perder los encabezados de columna */
+              thead{display:table-header-group}
+              tfoot{display:table-footer-group}
+              /* Cada fila permanece intacta — nunca se parte a la mitad entre hojas */
+              tr{page-break-inside:avoid;page-break-after:auto}
               @media print{
                 body{background:white;padding:0}
                 button{display:none}
+                /* Evitar corte de secciones del header del documento */
+                .doc-header{page-break-after:avoid}
               }
             </style>
             </head><body>
             ${bodyHTML}
-            <div style="text-align:center;margin-top:20px"><button onclick="window.print()" style="padding:10px 24px;background:#d4a843;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">Imprimir / Guardar PDF</button></div>
+            <div style="text-align:center;margin-top:20px" class="no-print"><button onclick="window.print()" style="padding:10px 24px;background:#d4a843;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">Imprimir / Guardar PDF</button></div>
+            <style>@media print{.no-print{display:none}}</style>
             </body></html>`);
           win.document.close();
         }
@@ -790,7 +839,8 @@ export default function ReportesPage() {
                       <tr><td colSpan={5} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Cargando...</td></tr>
                     ) : carteraItems.length === 0 ? (
                       <tr><td colSpan={5} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Sin clientes con cuotas vencidas</td></tr>
-                    ) : carteraItems.map((c: any, i: number) => (
+                    ) : (<>
+                      {carteraItems.slice(0, PREVIEW_MAX_ROWS).map((c: any, i: number) => (
                       <tr key={i} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-[9px]">
                         <td className="py-1 px-1 truncate max-w-[140px]">{c.nombre_comprador}</td>
                         <td className="py-1 px-1 text-gray-500 truncate max-w-[110px]">{c.descripcion_lote ?? '—'}</td>
@@ -798,7 +848,9 @@ export default function ReportesPage() {
                         <td className="py-1 px-1 text-right font-bold text-red-600 whitespace-nowrap">{fmt(c.monto_vencido)}</td>
                         <td className={`py-1 px-1 text-right font-bold ${c.dias_mora > 90 ? 'text-red-600' : c.dias_mora > 30 ? 'text-[#b8922e]' : 'text-[#d4a843]'}`}>{c.dias_mora}</td>
                       </tr>
-                    ))}
+                      ))}
+                      <MoreRowsIndicator total={carteraItems.length} colSpan={5} />
+                    </>)}
                   </tbody>
                 </table>
               </div>
@@ -829,7 +881,8 @@ export default function ReportesPage() {
                       <tr><td colSpan={6} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Cargando...</td></tr>
                     ) : clientes.length === 0 ? (
                       <tr><td colSpan={6} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Sin clientes registrados</td></tr>
-                    ) : clientes.map((c: any, i: number) => (
+                    ) : (<>
+                      {clientes.slice(0, PREVIEW_MAX_ROWS).map((c: any, i: number) => (
                       <tr key={i} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-[9px]">
                         <td className="py-1 px-1 truncate max-w-[120px]">{c.nombre_comprador}</td>
                         <td className="py-1 px-1 text-gray-500 truncate max-w-[100px]">{c.descripcion_lote ?? '—'}</td>
@@ -838,7 +891,9 @@ export default function ReportesPage() {
                         <td className="py-1 px-1 text-right">{c.num_cuotas}</td>
                         <td className="py-1 px-1 text-right whitespace-nowrap">{fmt(Number(c.valor_cuota))}</td>
                       </tr>
-                    ))}
+                      ))}
+                      <MoreRowsIndicator total={clientes.length} colSpan={6} />
+                    </>)}
                   </tbody>
                 </table>
               </div>
@@ -868,27 +923,37 @@ export default function ReportesPage() {
                     ) : comisionesMes.length === 0 ? (
                       <tr><td colSpan={4} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Sin comisiones registradas</td></tr>
                     ) : (() => {
-                      const meses = [...new Set(comisionesMes.map(r => r.mes_key))];
-                      return meses.map(mk => {
-                        const filas = comisionesMes.filter(r => r.mes_key === mk);
-                        const totalMes = filas.reduce((s, r) => s + r.total, 0);
-                        return (
-                          <React.Fragment key={mk}>
-                            {filas.map((r, i) => (
-                              <tr key={`${mk}-${i}`} className="border-b border-gray-100 text-[11px] sm:text-[9px]">
-                                <td className="py-1 px-1 text-gray-500">{i === 0 ? r.mes : ''}</td>
-                                <td className="py-1 px-1 truncate max-w-[160px]">{r.vendedor}</td>
-                                <td className="py-1 px-1 text-right">{r.cantidad}</td>
-                                <td className="py-1 px-1 text-right font-bold text-[#d4a843] whitespace-nowrap">{fmt(r.total)}</td>
-                              </tr>
-                            ))}
-                            <tr key={`${mk}-sub`} className="bg-amber-50 border-b border-amber-100 text-[11px] sm:text-[9px]">
-                              <td className="py-1 px-1 font-semibold text-amber-700" colSpan={3}>Subtotal {filas[0].mes}</td>
-                              <td className="py-1 px-1 text-right font-bold text-amber-700">{fmt(totalMes)}</td>
-                            </tr>
-                          </React.Fragment>
-                        );
-                      });
+                      // Slice al set completo pero manteniendo el agrupamiento por mes.
+                      const previewSet = comisionesMes.slice(0, PREVIEW_MAX_ROWS);
+                      const meses = [...new Set(previewSet.map(r => r.mes_key))];
+                      const filasIncluidas = previewSet.length;
+                      return (
+                        <>
+                          {meses.map(mk => {
+                            const filas = previewSet.filter(r => r.mes_key === mk);
+                            const totalMes = filas.reduce((s, r) => s + r.total, 0);
+                            return (
+                              <React.Fragment key={mk}>
+                                {filas.map((r, i) => (
+                                  <tr key={`${mk}-${i}`} className="border-b border-gray-100 text-[11px] sm:text-[9px]">
+                                    <td className="py-1 px-1 text-gray-500">{i === 0 ? r.mes : ''}</td>
+                                    <td className="py-1 px-1 truncate max-w-[160px]">{r.vendedor}</td>
+                                    <td className="py-1 px-1 text-right">{r.cantidad}</td>
+                                    <td className="py-1 px-1 text-right font-bold text-[#d4a843] whitespace-nowrap">{fmt(r.total)}</td>
+                                  </tr>
+                                ))}
+                                <tr key={`${mk}-sub`} className="bg-amber-50 border-b border-amber-100 text-[11px] sm:text-[9px]">
+                                  <td className="py-1 px-1 font-semibold text-amber-700" colSpan={3}>Subtotal {filas[0].mes}</td>
+                                  <td className="py-1 px-1 text-right font-bold text-amber-700">{fmt(totalMes)}</td>
+                                </tr>
+                              </React.Fragment>
+                            );
+                          })}
+                          {filasIncluidas < comisionesMes.length && (
+                            <MoreRowsIndicator total={comisionesMes.length} colSpan={4} />
+                          )}
+                        </>
+                      );
                     })()}
                   </tbody>
                 </table>
@@ -919,7 +984,8 @@ export default function ReportesPage() {
                       <tr><td colSpan={5} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Cargando...</td></tr>
                     ) : vendedores.length === 0 ? (
                       <tr><td colSpan={5} className="text-center py-3 text-gray-400 text-[11px] sm:text-[9px]">Sin vendedores registrados</td></tr>
-                    ) : vendedores.map((v: any, i: number) => (
+                    ) : (<>
+                      {vendedores.slice(0, PREVIEW_MAX_ROWS).map((v: any, i: number) => (
                       <tr key={i} className="border-b border-gray-100 last:border-0 text-[11px] sm:text-[9px]">
                         <td className="py-1 px-1 truncate max-w-[120px]">{v.nombre}</td>
                         <td className="py-1 px-1 text-gray-500 truncate max-w-[90px]">{v.telefono ?? '—'}</td>
@@ -927,7 +993,9 @@ export default function ReportesPage() {
                         <td className="py-1 px-1 text-right">{Number(v.total_ventas ?? 0)}</td>
                         <td className="py-1 px-1 text-right font-bold text-[#d4a843] whitespace-nowrap">{fmt(Number(v.total_comisiones ?? 0))}</td>
                       </tr>
-                    ))}
+                      ))}
+                      <MoreRowsIndicator total={vendedores.length} colSpan={5} />
+                    </>)}
                   </tbody>
                 </table>
               </div>
