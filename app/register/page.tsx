@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Check } from 'lucide-react';
 import { api } from '@/lib/api';
 import LegalModal, { type LegalTipo } from '@/components/legal/LegalModal';
-
-const STEPS = ['Empresa', 'Plan', 'Administrador'];
 
 type PlanSlug = 'basico' | 'business';
 
@@ -49,14 +48,39 @@ const PLANES: PlanOption[] = [
   },
 ];
 
+// Wrapper con Suspense — useSearchParams requiere Suspense boundary en Next.
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterInner />
+    </Suspense>
+  );
+}
+
+function RegisterInner() {
+  const searchParams = useSearchParams();
+  const planFromUrl = searchParams.get('plan');
+  // El plan viene pre-seleccionado si el usuario clickeó un CTA específico
+  // en la landing. En ese caso salteamos el step del selector.
+  const planPreSeleccionado = planFromUrl === 'basico' || planFromUrl === 'business';
+  const planInicial: PlanSlug = planFromUrl === 'business' ? 'business' : 'basico';
+
+  // STEPS y índices dinámicos según si el plan vino de la landing:
+  //   - Con URL: [Empresa, Administrador] (2 pasos)
+  //   - Sin URL: [Empresa, Plan, Administrador] (3 pasos)
+  const STEPS = planPreSeleccionado
+    ? ['Empresa', 'Administrador']
+    : ['Empresa', 'Plan', 'Administrador'];
+  const planStepIdx  = 1;  // solo válido si planPreSeleccionado = false
+  const adminStepIdx = planPreSeleccionado ? 1 : 2;
+
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [empresa, setEmpresa] = useState({ nombre: '', email: '', telefono: '' });
-  const [planElegido, setPlanElegido] = useState<PlanSlug>('basico');
+  const [planElegido, setPlanElegido] = useState<PlanSlug>(planInicial);
   const [admin, setAdmin] = useState({ nombre: '', email: '', username: '', password: '', confirmPassword: '' });
   const [aceptoTerminos, setAceptoTerminos] = useState(false);
   const [legalAbierto, setLegalAbierto] = useState<LegalTipo | null>(null);
@@ -150,15 +174,15 @@ export default function RegisterPage() {
                 value={empresa.telefono} onChange={e => setEmpresa(s => ({ ...s, telefono: e.target.value }))}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
             </div>
-            <button disabled={!canNextStep0} onClick={() => setStep(1)}
+            <button disabled={!canNextStep0} onClick={() => setStep(planPreSeleccionado ? adminStepIdx : planStepIdx)}
               className="mt-2 bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-40 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
               Continuar →
             </button>
           </div>
         )}
 
-        {/* Step 1: Selector de plan */}
-        {step === 1 && (
+        {/* Step 1 (solo si no vino plan por URL): Selector de plan */}
+        {!planPreSeleccionado && step === planStepIdx && (
           <div className="flex flex-col gap-5">
             <div className="text-center">
               <h2 className="text-lg font-bold text-[#1a1a1a]">Elige tu plan</h2>
@@ -229,8 +253,8 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {/* Step 2: Admin user */}
-        {step === 2 && (
+        {/* Step Admin — índice dinámico según si el plan vino por URL */}
+        {step === adminStepIdx && (
           <div className="flex flex-col gap-4">
             <div>
               <h2 className="text-lg font-bold text-[#1a1a1a]">Crea tu cuenta de administrador</h2>
@@ -251,10 +275,14 @@ export default function RegisterPage() {
                 <span className="text-gray-700">Luego se cobra:</span>
                 <span className="font-bold text-[#1a1a1a]">${planActual.precio} USD/mes</span>
               </div>
-              <button type="button" onClick={() => setStep(1)}
-                className="text-xs text-[#b8922e] font-semibold hover:underline mt-2">
-                Cambiar plan
-              </button>
+              {/* Cambiar plan: solo cuando el plan no vino de la landing (para
+                  no confundir al usuario que ya eligió explícitamente allá). */}
+              {!planPreSeleccionado && (
+                <button type="button" onClick={() => setStep(planStepIdx)}
+                  className="text-xs text-[#b8922e] font-semibold hover:underline mt-2">
+                  Cambiar plan
+                </button>
+              )}
             </div>
 
             {[
@@ -324,7 +352,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="flex gap-3 mt-1">
-              <button onClick={() => setStep(1)}
+              <button onClick={() => setStep(planPreSeleccionado ? 0 : planStepIdx)}
                 className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
                 ← Atrás
               </button>

@@ -115,7 +115,7 @@ export default function Pricing() {
               </li>
             </ul>
             <Link
-              href="/register"
+              href="/register?plan=basico"
               className="flex items-center justify-center gap-2 border border-gray-300 hover:border-gray-900 text-gray-900 font-semibold px-6 py-3.5 rounded-full transition-colors text-sm"
             >
               Empezar prueba gratuita
@@ -157,7 +157,7 @@ export default function Pricing() {
               </li>
             </ul>
             <Link
-              href="/register"
+              href="/register?plan=business"
               className="flex items-center justify-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-[#1a1a1a] font-bold px-6 py-3.5 rounded-full transition-colors text-sm shadow-lg shadow-[#d4a843]/20"
             >
               Empezar prueba gratuita
