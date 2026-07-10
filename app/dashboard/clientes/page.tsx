@@ -1089,6 +1089,8 @@ export default function ClientesPage() {
   const [pagosMap, setPagosMap] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [proyectosLista, setProyectosLista] = useState<Array<{ id: number; nombre: string }>>([]);
+  const [proyectoFiltro, setProyectoFiltro] = useState<number | 'todos'>('todos');
   const [modal, setModal] = useState(false);
   const [editCliente, setEditCliente] = useState<Cliente | null>(null);
   const [detalleCliente, setDetalleCliente] = useState<Cliente | null>(null);
@@ -1099,8 +1101,15 @@ export default function ClientesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, pagos] = await Promise.all([api.clientes.list(), api.pagos.list()]);
+      const [data, pagos, proyectos] = await Promise.all([
+        api.clientes.list(),
+        api.pagos.list(),
+        api.proyectos.list(),
+      ]);
       setClientes(data);
+      setProyectosLista(
+        (proyectos as any[]).filter((p) => p.activo).map((p) => ({ id: p.id, nombre: p.nombre })),
+      );
       const map: Record<number, number> = {};
       for (const p of pagos) {
         if (p.estado === 'pagado') {
@@ -1117,10 +1126,13 @@ export default function ClientesPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const filtrados = clientes.filter(c =>
-    c.nombre_comprador.toLowerCase().includes(busqueda.toLowerCase()) ||
-    (c.descripcion_lote ?? '').toLowerCase().includes(busqueda.toLowerCase()),
-  );
+  const filtrados = clientes.filter(c => {
+    const matchTexto =
+      c.nombre_comprador.toLowerCase().includes(busqueda.toLowerCase()) ||
+      (c.descripcion_lote ?? '').toLowerCase().includes(busqueda.toLowerCase());
+    const matchProyecto = proyectoFiltro === 'todos' || c.proyecto_id === proyectoFiltro;
+    return matchTexto && matchProyecto;
+  });
 
   function openNew() { setEditCliente(null); setModal(true); }
   function openEdit(c: Cliente) { setEditCliente(c); setModal(true); }
@@ -1154,14 +1166,28 @@ export default function ClientesPage() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          placeholder="Buscar por nombre o descripción de lote..."
-          className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+      {/* Search + filtro de proyecto */}
+      <div className="flex gap-2 flex-col sm:flex-row">
+        <div className="relative flex-1">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o descripción de lote..."
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
+        </div>
+        {proyectosLista.length > 1 && (
+          <select
+            value={proyectoFiltro}
+            onChange={(e) => setProyectoFiltro(e.target.value === 'todos' ? 'todos' : Number(e.target.value))}
+            className="w-full sm:w-56 px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#d4a843]"
+          >
+            <option value="todos">Todos los proyectos</option>
+            {proyectosLista.map((p) => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Table */}
