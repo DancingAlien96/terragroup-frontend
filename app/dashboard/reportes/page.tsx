@@ -297,16 +297,17 @@ export default function ReportesPage() {
     const tendenciaHTML = !r.tendencia || r.tendencia.length === 0 ? '' : (() => {
       const max = Math.max(...r.tendencia.map((t: any) => Number(t.cobrado)), 1);
       const bars = r.tendencia.map((t: any) => {
-        const px = Math.round((Number(t.cobrado) / max) * 60);
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
-          <div style="font-size:8px;font-weight:600;color:#6b7280">${fmt(Number(t.cobrado))}</div>
+        // Techo bar 55px para no invadir labels (arriba/abajo) del container de 90px
+        const px = Math.round((Number(t.cobrado) / max) * 55);
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0">
+          <div style="font-size:8px;font-weight:600;color:#6b7280;text-align:center;width:100%">${fmt(Number(t.cobrado))}</div>
           <div style="width:100%;background:#d4a843;border-radius:2px 2px 0 0;height:${px}px"></div>
-          <span style="font-size:8px;color:#9ca3af">${escapeHtml(t.mes)}</span>
+          <span style="font-size:8px;color:#9ca3af;text-align:center;width:100%">${escapeHtml(t.mes)}</span>
         </div>`;
       }).join('');
       return `<div style="margin-top:14px">
-        <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 6px">Tendencia de Cobranza \u00B7 \u00FAltimos ${r.tendencia.length} mes(es)</h4>
-        <div style="display:flex;align-items:flex-end;gap:6px;height:80px">${bars}</div>
+        <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 8px">Tendencia de Cobranza \u00B7 \u00FAltimos ${r.tendencia.length} mes(es)</h4>
+        <div style="display:flex;align-items:flex-end;gap:6px;height:90px;overflow:hidden">${bars}</div>
       </div>`;
     })();
 
@@ -724,18 +725,20 @@ export default function ReportesPage() {
 
                     {/* Tendencia mini */}
                     {resumen.tendencia && resumen.tendencia.length > 0 && (
-                      <div>
-                        <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a] mb-2 sm:mb-1">Tendencia de Cobranza · últimos {resumen.tendencia.length} mes(es)</h4>
-                        <div className="flex items-end gap-1 h-20 sm:h-14">
+                      <div className="mt-2">
+                        <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a] mb-3">Tendencia de Cobranza · últimos {resumen.tendencia.length} mes(es)</h4>
+                        <div className="flex items-end gap-1 h-24 overflow-hidden">
                           {(() => {
                             const max = Math.max(...resumen.tendencia.map((t: any) => Number(t.cobrado)), 1);
+                            // Techo de barra reducido a 55px para dejar espacio a labels
+                            // (monto arriba ~10px + gap + bar ≤55px + label mes ~10px ≤ 96px).
                             return resumen.tendencia.map((t: any) => {
-                              const px = Math.round((Number(t.cobrado) / max) * 60);
+                              const px = Math.round((Number(t.cobrado) / max) * 55);
                               return (
                                 <div key={t.mes_key} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
-                                  <div className="text-[9px] sm:text-[7px] font-semibold text-gray-500 truncate w-full text-center">{fmt(Number(t.cobrado))}</div>
+                                  <div className="text-[8px] sm:text-[7px] font-semibold text-gray-500 truncate w-full text-center">{fmt(Number(t.cobrado))}</div>
                                   <div className="w-full bg-[#d4a843] rounded-t-sm" style={{ height: `${px}px` }} />
-                                  <span className="text-[9px] sm:text-[7px] text-gray-400">{t.mes}</span>
+                                  <span className="text-[8px] sm:text-[7px] text-gray-400 truncate w-full text-center">{t.mes}</span>
                                 </div>
                               );
                             });
@@ -764,24 +767,26 @@ export default function ReportesPage() {
               </div>
 
               {/* Mini chart */}
-              <div>
-                <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a] mb-2 sm:mb-1">Tendencia mensual</h4>
-                {loading ? <div className="h-20 flex items-center justify-center text-gray-400 text-xs">Cargando...</div>
-                : monthly.length === 0 ? <div className="h-20 flex items-center justify-center text-gray-400 text-xs">Sin datos</div>
+              <div className="mt-1">
+                <h4 className="font-semibold text-[11px] sm:text-[9px] uppercase text-[#1a1a1a] mb-3">Tendencia mensual</h4>
+                {loading ? <div className="h-24 flex items-center justify-center text-gray-400 text-xs">Cargando...</div>
+                : monthly.length === 0 ? <div className="h-24 flex items-center justify-center text-gray-400 text-xs">Sin datos</div>
                 : (
-                  <div className="flex items-end gap-1 h-20 sm:h-14">
+                  <div className="flex items-end gap-1 h-24 overflow-hidden">
                     {monthly.map((d: any) => {
                       const cobrado = Number(d.cobrado), pendiente = Number(d.pendiente);
-                      const cobradoPx   = Math.round((cobrado   / maxBar) * 60);
-                      const pendientePx = Math.round((pendiente / maxBar) * 60);
+                      // Techo de barra reducido a 55px para dejar espacio a labels
+                      // (monto arriba + gap + bar ≤55px + label mes ≤ 96px del container).
+                      const cobradoPx   = Math.round((cobrado   / maxBar) * 55);
+                      const pendientePx = Math.round((pendiente / maxBar) * 55);
                       return (
                         <div key={d.mes_key} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
-                          <div className="text-[9px] sm:text-[7px] font-semibold text-gray-500 truncate w-full text-center">{fmt(cobrado)}</div>
-                          <div className="w-full flex flex-col gap-0.5" style={{ height: '60px', justifyContent: 'flex-end' }}>
+                          <div className="text-[8px] sm:text-[7px] font-semibold text-gray-500 truncate w-full text-center">{fmt(cobrado)}</div>
+                          <div className="w-full flex flex-col gap-0.5" style={{ height: '55px', justifyContent: 'flex-end' }}>
                             {pendientePx > 0 && <div className="w-full bg-gray-200 rounded-t-sm" style={{ height: `${pendientePx}px` }} />}
                             {cobradoPx > 0   && <div className="w-full bg-[#d4a843] rounded-t-sm" style={{ height: `${cobradoPx}px` }} />}
                           </div>
-                          <span className="text-[9px] sm:text-[7px] text-gray-400">{d.mes}</span>
+                          <span className="text-[8px] sm:text-[7px] text-gray-400 truncate w-full text-center">{d.mes}</span>
                         </div>
                       );
                     })}
