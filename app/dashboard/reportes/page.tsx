@@ -443,6 +443,91 @@ export default function ReportesPage() {
     `;
   }
 
+  // HTML del PDF de Cobranza — matchea el preview (KPIs + gráfico + tabla).
+  function buildCobranzaHTML(): string {
+    const trFilas = monthly.length === 0
+      ? `<tr><td colspan="3" style="text-align:center;color:#9ca3af;padding:12px;font-size:10px">Sin datos</td></tr>`
+      : monthly.map((d: any) => `<tr>
+          <td style="padding:5px 8px;border-bottom:1px solid #f3f4f6;color:#374151;font-size:10px">${escapeHtml(d.mes)}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f3f4f6;text-align:right;color:#b8922e;font-weight:700;font-size:10px">${fmt(Number(d.cobrado))}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #f3f4f6;text-align:right;color:#374151;font-size:10px">${fmt(Number(d.pendiente))}</td>
+        </tr>`).join('');
+
+    const bars = monthly.length === 0 ? '' : (() => {
+      const maxB = Math.max(...monthly.map((d: any) => Number(d.cobrado) + Number(d.pendiente)), 1);
+      return monthly.map((d: any) => {
+        const cobrado = Number(d.cobrado), pendiente = Number(d.pendiente);
+        const cPx = Math.round((cobrado   / maxB) * 55);
+        const pPx = Math.round((pendiente / maxB) * 55);
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0">
+          <div style="font-size:8px;font-weight:600;color:#6b7280;text-align:center;width:100%">${fmt(cobrado)}</div>
+          <div style="width:100%;height:55px;display:flex;flex-direction:column;justify-content:flex-end;gap:2px">
+            ${pPx > 0 ? `<div style="width:100%;background:#e5e7eb;border-radius:2px 2px 0 0;height:${pPx}px"></div>` : ''}
+            ${cPx > 0 ? `<div style="width:100%;background:#d4a843;border-radius:2px 2px 0 0;height:${cPx}px"></div>` : ''}
+          </div>
+          <span style="font-size:8px;color:#9ca3af;text-align:center;width:100%">${escapeHtml(d.mes)}</span>
+        </div>`;
+      }).join('');
+    })();
+
+    const fechaStr = new Date().toLocaleDateString('es-GT', { dateStyle: 'medium' });
+    return `
+      <div style="max-width:760px;margin:0 auto;background:white;padding:28px;color:#374151;font-size:11px;line-height:1.45;font-family:-apple-system,Segoe UI,Roboto,sans-serif">
+        <div class="doc-header" style="border-bottom:1px solid #e5e7eb;padding-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+          <div>
+            <p style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#b8922e;font-weight:700;margin:0">Cobranza General</p>
+            <p style="font-size:18px;font-weight:700;color:#1a1a1a;margin:2px 0 0">${escapeHtml(empresaNombre)}</p>
+            <p style="font-size:10px;color:#9ca3af;margin:2px 0 0">Tendencia de pagos de los últimos 6 meses</p>
+          </div>
+          <p style="font-size:9px;color:#9ca3af;margin:0;white-space:nowrap">${escapeHtml(fechaStr)}</p>
+        </div>
+
+        <!-- KPIs -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+          <div style="border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px">
+            <p style="font-size:9px;text-transform:uppercase;color:#6b7280;margin:0">Cobrado</p>
+            <p style="font-size:13px;font-weight:700;color:#b8922e;margin:2px 0 0">${fmt(totalCobrado)}</p>
+          </div>
+          <div style="border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px">
+            <p style="font-size:9px;text-transform:uppercase;color:#6b7280;margin:0">Pendiente</p>
+            <p style="font-size:13px;font-weight:700;color:#374151;margin:2px 0 0">${fmt(totalPendiente)}</p>
+          </div>
+          <div style="border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px">
+            <p style="font-size:9px;text-transform:uppercase;color:#6b7280;margin:0">Tasa</p>
+            <p style="font-size:13px;font-weight:700;color:#b8922e;margin:2px 0 0">${tasa}%</p>
+          </div>
+        </div>
+
+        <!-- Gráfico -->
+        ${monthly.length > 0 ? `
+        <div style="margin-bottom:16px">
+          <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 8px">Tendencia mensual</h4>
+          <div style="display:flex;align-items:flex-end;gap:6px;height:90px;overflow:hidden">${bars}</div>
+        </div>` : ''}
+
+        <!-- Desglose -->
+        ${monthly.length > 0 ? `
+        <div>
+          <h4 style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#1a1a1a;margin:0 0 6px">Desglose mensual</h4>
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="border-bottom:1px solid #e5e7eb;font-size:9px;color:#6b7280;text-transform:uppercase">
+                <th style="text-align:left;padding:5px 8px;font-weight:500">Mes</th>
+                <th style="text-align:right;padding:5px 8px;font-weight:500">Cobrado</th>
+                <th style="text-align:right;padding:5px 8px;font-weight:500">Pendiente</th>
+              </tr>
+            </thead>
+            <tbody>${trFilas}</tbody>
+          </table>
+        </div>` : ''}
+
+        <p style="font-size:8px;color:#9ca3af;text-align:center;margin-top:18px;padding-top:8px;border-top:1px solid #f3f4f6">
+          Generado el ${new Date().toLocaleString('es-GT', { dateStyle: 'long', timeStyle: 'short' })}
+        </p>
+      </div>
+    `;
+  }
+
   function handleGenerar() {
     setGenerando(true);
     setGenerado(false);
@@ -461,6 +546,8 @@ export default function ReportesPage() {
           let bodyHTML: string;
           if (tipo === 'general' && resumen) {
             bodyHTML = buildResumenHTML(resumen);
+          } else if (tipo === 'cobranza') {
+            bodyHTML = buildCobranzaHTML();
           } else {
             bodyHTML = buildSimpleReportHTML(title, headers, rows);
           }
