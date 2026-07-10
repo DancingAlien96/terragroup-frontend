@@ -18,6 +18,7 @@ interface Cliente {
   nit: string | null;
   email: string | null;
   telefono: string | null;
+  proyecto_id: number | null;
   descripcion_lote: string | null;
   precio_neto: number;
   enganche: number;
@@ -773,6 +774,21 @@ function ClienteModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showAlert, DialogJSX: ClienteDialogJSX } = useDialog();
 
+  // Proyectos activos (para el selector). Solo se muestra si hay 2+ activos.
+  const [proyectos, setProyectos] = useState<Array<{ id: number; nombre: string }>>([]);
+  const [proyectoId, setProyectoId] = useState<number | null>(cliente?.proyecto_id ?? null);
+  useEffect(() => {
+    api.proyectos.list()
+      .then((list: any[]) => {
+        const activos = list.filter((p) => p.activo).map((p) => ({ id: p.id, nombre: p.nombre }));
+        setProyectos(activos);
+        // Si el cliente aún no tiene proyecto pero solo hay uno, autoseleccionar
+        if (!proyectoId && activos.length > 0) setProyectoId(activos[0].id);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const tieneEnganche = engancheNum > 0;
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -795,6 +811,7 @@ function ClienteModal({
     try {
       const body = {
         nombre_comprador: nombre,
+        proyecto_id: proyectoId ?? undefined,
         nit: nit.trim() || null,
         email: email || null,
         telefono: telefono || null,
@@ -869,6 +886,23 @@ function ClienteModal({
             <input type="text" value={nit} onChange={e => setNit(e.target.value)} maxLength={20} placeholder="Ej. 1234567-8 o CF"
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]" />
           </div>
+          {/* Selector de proyecto — solo visible si hay 2+ proyectos activos */}
+          {proyectos.length > 1 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Proyecto *</label>
+              <select
+                value={proyectoId ?? ''}
+                onChange={(e) => setProyectoId(Number(e.target.value) || null)}
+                required
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] bg-white"
+              >
+                {proyectos.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-gray-400 mt-1">La lotificación a la que pertenece esta venta</p>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Descripción del Lote *</label>
             <input type="text" value={descLote} onChange={e => setDescLote(e.target.value)} maxLength={255} placeholder="Ej. Manzana A, Lote 12 — 120m²" required
