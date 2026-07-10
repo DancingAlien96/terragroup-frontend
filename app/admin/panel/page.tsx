@@ -10,8 +10,9 @@ import {
 } from 'recharts';
 import {
   DollarSign, Building2, TrendingUp, Activity, Search, ArrowUp, ArrowDown,
-  Wallet, AlertTriangle, Trophy,
+  Wallet, AlertTriangle, Trophy, Users,
 } from 'lucide-react';
+import UsuariosEmpresaModal from '@/components/admin/UsuariosEmpresaModal';
 
 interface EmpresaRow {
   id: number;
@@ -86,6 +87,7 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
   const [query, setQuery] = useState('');
+  const [usuariosModal, setUsuariosModal] = useState<EmpresaRow | null>(null);
 
   useEffect(() => {
     const user = getStoredUser();
@@ -581,10 +583,18 @@ export default function AdminPage() {
                     <td className="px-4 py-3 text-center text-gray-700">{emp.total_lotes}</td>
                     <td className="px-4 py-3 text-center text-gray-700">{emp.total_ventas}</td>
                     <td className="px-4 py-3">
-                      <button onClick={() => openEdit(emp)}
-                        className="text-xs text-[#d4a843] font-semibold hover:underline">
-                        Editar
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setUsuariosModal(emp)}
+                          className="text-xs text-gray-500 hover:text-[#1a1a1a] font-semibold flex items-center gap-1"
+                          title="Ver / gestionar usuarios">
+                          <Users size={13} />
+                          Usuarios
+                        </button>
+                        <button onClick={() => openEdit(emp)}
+                          className="text-xs text-[#d4a843] font-semibold hover:underline">
+                          Editar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -594,6 +604,14 @@ export default function AdminPage() {
         </div>
 
         {/* Edit Modal */}
+        {usuariosModal && (
+          <UsuariosEmpresaModal
+            empresaId={usuariosModal.id}
+            empresaNombre={usuariosModal.nombre}
+            onClose={() => setUsuariosModal(null)}
+          />
+        )}
+
         {editModal && (
           <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4" onClick={() => setEditModal(null)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-5" onClick={e => e.stopPropagation()}>

@@ -89,6 +89,11 @@ export const api = {
     changePlan:              (id: number, plan_id: number) => request<any>(`/api/empresas/${id}/plan`, { method: 'PATCH', body: JSON.stringify({ plan_id }) }),
     miSuscripcion:           () => request<any>('/api/empresas/mi-suscripcion'),
     cancelarMiSuscripcion:   () => request<any>('/api/empresas/mi-suscripcion/cancelar', { method: 'POST' }),
+    listUsuarios:            (empresaId: number) =>
+      request<any[]>(`/api/empresas/${empresaId}/usuarios`),
+    updateCredenciales:      (empresaId: number, usuarioId: number, body: { username?: string; password?: string }) =>
+      request<any>(`/api/empresas/${empresaId}/usuarios/${usuarioId}/credenciales`,
+        { method: 'PATCH', body: JSON.stringify(body) }),
   },
 
   planes: {
