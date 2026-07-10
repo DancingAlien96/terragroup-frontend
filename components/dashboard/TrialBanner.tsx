@@ -3,9 +3,23 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, Clock, CreditCard, X } from 'lucide-react';
 import { api } from '@/lib/api';
+import { getStoredUser } from '@/lib/auth';
 import { useDialog } from '@/lib/useDialog';
+import type { Plan } from '@/types';
 
 type Estado = 'pendiente' | 'trial' | 'pagada' | 'pago_fallido' | 'cancelada';
+
+/**
+ * Precio mensual visible por plan (USD). Se hardcodea acá para no depender
+ * de una llamada extra al backend por cada banner. Debe matchear con las
+ * env vars RECURRENTE_PRECIO_*_CENTS del backend.
+ */
+const PRECIO_MENSUAL_USD: Record<Plan, number> = {
+  basico:      250,
+  business:    350,
+  profesional: 350,   // legacy, mismo que business
+  empresarial: 0,     // plan interno, no se cobra
+};
 
 interface SuscripcionInfo {
   estado:         Estado;
@@ -33,6 +47,11 @@ export default function TrialBanner() {
       .then((d) => setInfo(d as SuscripcionInfo))
       .catch(() => { /* silencio: si no carga, no estorbamos */ });
   }, []);
+
+  // Precio del plan del usuario logueado — se lee del JWT, no requiere fetch.
+  const usuario = typeof window !== 'undefined' ? getStoredUser() : null;
+  const planUsuario: Plan = (usuario?.plan as Plan) ?? 'basico';
+  const precioMensual = PRECIO_MENSUAL_USD[planUsuario] ?? PRECIO_MENSUAL_USD.basico;
 
   async function handleCancelar() {
     if (!await showConfirm('¿Cancelar tu suscripción?', {
@@ -67,7 +86,7 @@ export default function TrialBanner() {
               Trial: {dias === 0 ? 'vence hoy' : dias === 1 ? 'vence mañana' : `${dias} días restantes`}
             </span>
             <span className="ml-2 text-xs opacity-80">
-              Al finalizar se cobrará $2,000 USD a tu tarjeta.
+              Al finalizar se cobrará ${precioMensual} USD/mes a tu tarjeta.
             </span>
           </div>
           <button onClick={handleCancelar} disabled={canceling}

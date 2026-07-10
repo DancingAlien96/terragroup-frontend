@@ -82,74 +82,143 @@ export default function Pricing() {
           })}
         </div>
 
-        {/* ── Precio + CTA ───────────────────────────────────── */}
-        <div className="bg-gradient-to-br from-[#1a1a1a] via-[#1f1f1f] to-[#2a2a2a] rounded-3xl overflow-hidden shadow-2xl">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
-            {/* Precio */}
-            <div className="lg:col-span-2 p-8 sm:p-10 lg:border-r lg:border-white/10 flex flex-col justify-center">
-              <span className="text-[#d4a843] text-xs font-bold uppercase tracking-widest mb-3">Inversión única</span>
-              <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-5xl sm:text-6xl font-extrabold text-white">$2,000</span>
-                <span className="text-lg text-gray-400 font-medium">USD</span>
-              </div>
-              <p className="text-sm text-gray-400 mb-4">≈ Q15,400 GTQ al tipo de cambio actual</p>
-              <div className="h-px bg-white/10 my-4" />
-              <ul className="flex flex-col gap-2 text-sm text-white/80">
-                <li className="flex items-start gap-2">
-                  <span className="text-[#d4a843] mt-0.5">✓</span>
-                  Configuración llave en mano
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-[#d4a843] mt-0.5">✓</span>
-                  Capacitación incluida
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-[#d4a843] mt-0.5">✓</span>
-                  Soporte continuo y actualizaciones
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-[#d4a843] mt-0.5">✓</span>
-                  Sin contratos atados
-                </li>
-              </ul>
+        {/* ── Cards de planes ────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+          {/* Básico */}
+          <div className="bg-white border border-gray-200 rounded-3xl p-8 flex flex-col shadow-sm">
+            <span className="text-[#b8922e] text-xs font-bold uppercase tracking-widest mb-2">Plan Básico</span>
+            <div className="flex items-baseline gap-1 mb-1">
+              <span className="text-4xl font-extrabold text-gray-900">$250</span>
+              <span className="text-sm text-gray-500 font-medium">USD/mes</span>
             </div>
-
-            {/* CTAs */}
-            <div className="lg:col-span-3 p-8 sm:p-10 flex flex-col justify-center gap-5">
-              <div>
-                <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-3 leading-tight">
-                  ¿Listo para digitalizar tu lotificación?
-                </h3>
-                <p className="text-white/70 text-base leading-relaxed">
-                  Agenda una demo gratuita y descubre cómo TerraGroup puede transformar la gestión de cobranza de tu empresa.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 mt-2">
-                <a
-                  href="mailto:terragroup692@gmail.com?subject=Solicitud%20de%20demo%20TerraGroup"
-                  className="flex items-center justify-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-[#1a1a1a] font-bold px-6 py-4 rounded-full transition-colors text-sm shadow-lg shadow-[#d4a843]/20"
-                >
-                  <Mail size={16} />
-                  Solicitar demo gratuita
-                </a>
-                <Link
-                  href="/register"
-                  className="flex items-center justify-center gap-2 border border-white/30 hover:border-white text-white font-semibold px-6 py-4 rounded-full transition-colors text-sm"
-                >
-                  Crear cuenta ahora
-                  <ArrowRight size={16} />
-                </Link>
-              </div>
-
-              <p className="text-xs text-white/50 mt-1">
-                ¿Dudas? Escríbenos a{' '}
-                <a href="mailto:terragroup692@gmail.com" className="text-[#d4a843] hover:underline">
-                  terragroup692@gmail.com
-                </a>
-              </p>
-            </div>
+            <p className="text-xs text-gray-500 mb-6">14 días gratis · cancela cuando quieras</p>
+            <ul className="flex flex-col gap-2.5 text-sm text-gray-700 mb-8 flex-1">
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                <span><strong>1 proyecto</strong> (una lotificación)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Todas las funciones del sistema
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Cobranza automática por WhatsApp y correo
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Reportes completos
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Proyectos extra a $50/mes
+              </li>
+            </ul>
+            <Link
+              href="/register"
+              className="flex items-center justify-center gap-2 border border-gray-300 hover:border-gray-900 text-gray-900 font-semibold px-6 py-3.5 rounded-full transition-colors text-sm"
+            >
+              Empezar prueba gratuita
+              <ArrowRight size={16} />
+            </Link>
           </div>
+
+          {/* Business — destacado */}
+          <div className="relative bg-gradient-to-br from-[#1a1a1a] via-[#1f1f1f] to-[#2a2a2a] rounded-3xl p-8 flex flex-col shadow-2xl scale-100 md:scale-105">
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#d4a843] text-[#1a1a1a] text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+              Más popular
+            </span>
+            <span className="text-[#d4a843] text-xs font-bold uppercase tracking-widest mb-2">Plan Business</span>
+            <div className="flex items-baseline gap-1 mb-1">
+              <span className="text-4xl font-extrabold text-white">$350</span>
+              <span className="text-sm text-gray-400 font-medium">USD/mes</span>
+            </div>
+            <p className="text-xs text-gray-400 mb-6">14 días gratis · cancela cuando quieras</p>
+            <ul className="flex flex-col gap-2.5 text-sm text-white/85 mb-8 flex-1">
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                <span><strong className="text-white">2 proyectos</strong> (dos lotificaciones)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Todas las funciones del sistema
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Cobranza automática por WhatsApp y correo
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Reportes completos
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Proyectos extra a $50/mes
+              </li>
+            </ul>
+            <Link
+              href="/register"
+              className="flex items-center justify-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-[#1a1a1a] font-bold px-6 py-3.5 rounded-full transition-colors text-sm shadow-lg shadow-[#d4a843]/20"
+            >
+              Empezar prueba gratuita
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+
+          {/* Lifetime — CTA por email */}
+          <div className="bg-white border-2 border-dashed border-gray-300 rounded-3xl p-8 flex flex-col">
+            <span className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2">Plan Lifetime</span>
+            <div className="flex items-baseline gap-1 mb-1">
+              <span className="text-3xl font-extrabold text-gray-900">Consulta</span>
+            </div>
+            <p className="text-xs text-gray-500 mb-6">Compra el sistema de por vida, sin mensualidad</p>
+            <ul className="flex flex-col gap-2.5 text-sm text-gray-700 mb-8 flex-1">
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                <span><strong>Proyectos ilimitados</strong></span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Un solo pago, acceso perpetuo
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Todas las funciones incluidas
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Soporte prioritario
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#d4a843] mt-0.5 font-bold">✓</span>
+                Adaptado a tu operación
+              </li>
+            </ul>
+            <a
+              href="mailto:soporte@piums.io?subject=Consulta%20Plan%20Lifetime%20TerraGroup"
+              className="flex items-center justify-center gap-2 border border-gray-300 hover:border-gray-900 text-gray-900 font-semibold px-6 py-3.5 rounded-full transition-colors text-sm"
+            >
+              <Mail size={14} />
+              Contactar por email
+            </a>
+          </div>
+        </div>
+
+        {/* ── CTA email ───────────────────────────────────────── */}
+        <div className="bg-gradient-to-br from-[#1a1a1a] via-[#1f1f1f] to-[#2a2a2a] rounded-3xl p-8 sm:p-10 text-center shadow-2xl">
+          <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-3 leading-tight">
+            ¿Prefieres una demo antes de empezar?
+          </h3>
+          <p className="text-white/70 text-base leading-relaxed max-w-xl mx-auto mb-6">
+            Escríbenos y agendamos una demo gratuita para que veas TerraGroup en vivo antes de crear tu cuenta.
+          </p>
+          <a
+            href="mailto:soporte@piums.io?subject=Solicitud%20de%20demo%20TerraGroup"
+            className="inline-flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-[#1a1a1a] font-bold px-6 py-3.5 rounded-full transition-colors text-sm shadow-lg shadow-[#d4a843]/20"
+          >
+            <Mail size={16} />
+            Solicitar demo gratuita
+          </a>
         </div>
 
         {/* ── Benefits ───────────────────────────────────────── */}
