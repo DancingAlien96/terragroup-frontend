@@ -204,22 +204,6 @@ export default function Pricing() {
           </div>
         </div>
 
-        {/* ── CTA email ───────────────────────────────────────── */}
-        <div className="bg-gradient-to-br from-[#1a1a1a] via-[#1f1f1f] to-[#2a2a2a] rounded-3xl p-8 sm:p-10 text-center shadow-2xl">
-          <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-3 leading-tight">
-            ¿Prefieres una demo antes de empezar?
-          </h3>
-          <p className="text-white/70 text-base leading-relaxed max-w-xl mx-auto mb-6">
-            Escríbenos y agendamos una demo gratuita para que veas TerraGroup en vivo antes de crear tu cuenta.
-          </p>
-          <a
-            href="mailto:soporte@piums.io?subject=Solicitud%20de%20demo%20TerraGroup"
-            className="inline-flex items-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-[#1a1a1a] font-bold px-6 py-3.5 rounded-full transition-colors text-sm shadow-lg shadow-[#d4a843]/20"
-          >
-            <Mail size={16} />
-            Solicitar demo gratuita
-          </a>
-        </div>
 
         {/* ── Benefits ───────────────────────────────────────── */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-5 gap-6">
