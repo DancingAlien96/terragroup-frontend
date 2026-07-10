@@ -67,16 +67,19 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
-  {
-    label: 'Notificaciones',
-    href: '/dashboard/notificaciones',
-    minPlan: 'profesional' as Plan,
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-      </svg>
-    ),
-  },
+  // Notificaciones deshabilitado por decisión de producto — la ruta redirige
+  // a /dashboard si alguien intenta ir directo. Item removido del sidebar
+  // para todos los roles (superadmin ya no pasa por este layout).
+  // {
+  //   label: 'Notificaciones',
+  //   href: '/dashboard/notificaciones',
+  //   minPlan: 'profesional' as Plan,
+  //   icon: (
+  //     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  //       <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+  //     </svg>
+  //   ),
+  // },
   {
     label: 'Expediente de Clientes',
     href: '/dashboard/expedientes',
