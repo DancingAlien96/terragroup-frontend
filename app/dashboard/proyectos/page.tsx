@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Layers, Plus, MapPin, MoreVertical, Edit2, Trash2, Power, X, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Layers, Plus, MapPin, MoreVertical, Edit2, Trash2, Power, X, AlertCircle, MapPinned } from 'lucide-react';
 import { api } from '@/lib/api';
 import { isReadOnly } from '@/lib/auth';
 import { useDialog } from '@/lib/useDialog';
@@ -260,6 +261,14 @@ export default function ProyectosPage() {
                   </div>
                   <span className="text-gray-400">Creado {fmtDate(p.created_at)}</span>
                 </div>
+
+                <Link
+                  href={`/dashboard/proyectos/${p.id}/croquis`}
+                  className="block px-5 py-2.5 border-t border-gray-100 text-xs font-semibold text-[#8a6910] hover:bg-[#fdf3d9]/50 transition-colors flex items-center gap-1.5"
+                >
+                  <MapPinned size={12}/>
+                  Croquis del proyecto
+                </Link>
               </div>
             ))}
           </div>

@@ -116,4 +116,19 @@ export const api = {
     regenerar: (ventaId: number) => request<any>(`/api/amortizacion/venta/${ventaId}/regenerar`, { method: 'POST' }),
     liquidar:  (ventaId: number, body: unknown) => request<any>(`/api/amortizacion/venta/${ventaId}/liquidar`, { method: 'POST', body: JSON.stringify(body) }),
   },
+
+  croquis: {
+    getPorProyecto:  (proyectoId: number) => request<any>(`/api/croquis/proyecto/${proyectoId}`),
+    upsert:          (proyectoId: number, body: unknown) => request<any>(`/api/croquis/proyecto/${proyectoId}`, { method: 'POST', body: JSON.stringify(body) }),
+    updateContacto:  (id: number, body: unknown) => request<any>(`/api/croquis/${id}/contacto`, { method: 'PATCH', body: JSON.stringify(body) }),
+    activarPublico:  (id: number) => request<any>(`/api/croquis/${id}/publico/activar`, { method: 'POST' }),
+    desactivarPublico:(id: number) => request<any>(`/api/croquis/${id}/publico/desactivar`, { method: 'POST' }),
+    regenerarToken:  (id: number) => request<any>(`/api/croquis/${id}/publico/regenerar`, { method: 'POST' }),
+    delete:          (id: number) => request<void>(`/api/croquis/${id}`, { method: 'DELETE' }),
+    setPin:          (loteId: number, body: { punto_x: number; punto_y: number }) =>
+      request<any>(`/api/croquis/lotes/${loteId}/pin`, { method: 'PATCH', body: JSON.stringify(body) }),
+    quitarPin:       (loteId: number) => request<any>(`/api/croquis/lotes/${loteId}/pin`, { method: 'DELETE' }),
+    updateVisibilidadLote: (loteId: number, body: { mostrar_precio_publico?: boolean; notas_publicas?: string | null }) =>
+      request<any>(`/api/croquis/lotes/${loteId}/publico`, { method: 'PATCH', body: JSON.stringify(body) }),
+  },
 };
