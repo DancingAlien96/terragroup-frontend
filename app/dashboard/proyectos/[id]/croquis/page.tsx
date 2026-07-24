@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, ImageUp, MapPin, X, Trash2, Copy, Eye, EyeOff,
-  RotateCw, Check, Save, Sparkles, Phone, Mail, MousePointerClick,
+  RotateCw, Check, Save, Sparkles, Phone, Mail, MousePointerClick, Lock,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
@@ -72,6 +72,7 @@ export default function CroquisEditorPage() {
   const [loading,  setLoading]  = useState(true);
   const [uploading,setUploading]= useState(false);
   const [copiado,  setCopiado]  = useState(false);
+  const [addonInactivo, setAddonInactivo] = useState(false);
 
   // Interacción del canvas
   const [modo,        setModo]        = useState<'ver' | 'colocando'>('ver');
@@ -84,13 +85,22 @@ export default function CroquisEditorPage() {
     if (!Number.isFinite(proyectoId)) return;
     setLoading(true);
     try {
-      const [proy, data] = await Promise.all([
-        api.proyectos.get(proyectoId),
-        api.croquis.getPorProyecto(proyectoId),
-      ]);
+      const proy = await api.proyectos.get(proyectoId);
       setProyecto(proy as Proyecto);
-      setCroquis((data.croquis ?? null) as Croquis | null);
-      setLotes((data.lotes ?? []) as LoteCroquis[]);
+      try {
+        const data = await api.croquis.getPorProyecto(proyectoId);
+        setCroquis((data.croquis ?? null) as Croquis | null);
+        setLotes((data.lotes ?? []) as LoteCroquis[]);
+        setAddonInactivo(false);
+      } catch (e: any) {
+        // 402 = add-on croquis no activo para esta empresa. No lo tratamos como
+        // error genérico — mostramos pantalla informativa.
+        if (typeof e?.message === 'string' && /croquis no está activa|no activo/i.test(e.message)) {
+          setAddonInactivo(true);
+        } else {
+          throw e;
+        }
+      }
     } catch (e: any) {
       showAlert(e?.message ?? 'Error al cargar el croquis');
     } finally {
@@ -191,6 +201,37 @@ export default function CroquisEditorPage() {
   /* ── Render ──────────────────────────────────────────────── */
   if (loading) {
     return <div className="p-8 text-sm text-gray-400">Cargando croquis…</div>;
+  }
+
+  if (addonInactivo) {
+    return (
+      <div className="max-w-lg mx-auto mt-10">
+        <Link href="/dashboard/proyectos"
+          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#d4a843] mb-4">
+          <ArrowLeft size={12}/> Volver a proyectos
+        </Link>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-[#fdf3d9] flex items-center justify-center mx-auto mb-3">
+            <Lock size={22} className="text-[#8a6910]"/>
+          </div>
+          <h1 className="text-lg font-bold text-gray-900">Croquis no está activo</h1>
+          <p className="text-sm text-gray-500 mt-1.5">
+            El add-on de croquis interactivo aún no está habilitado para tu cuenta.
+            Escríbenos y lo activamos.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center mt-5">
+            <a href="mailto:soporte@piums.io?subject=Quiero activar el croquis"
+              className="inline-flex items-center justify-center gap-2 bg-[#d4a843] hover:bg-[#b8922e] text-white font-semibold text-sm px-4 py-2.5 rounded-xl">
+              <Mail size={14}/> Contactar soporte
+            </a>
+            <Link href="/dashboard/proyectos"
+              className="inline-flex items-center justify-center gap-2 border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold text-sm px-4 py-2.5 rounded-xl">
+              Volver
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const lotesConPin  = lotes.filter(l => l.punto_x !== null && l.punto_y !== null);

@@ -91,6 +91,7 @@ export const api = {
     update:                  (id: number, body: unknown) => request<any>(`/api/empresas/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
     toggle:                  (id: number) => request<any>(`/api/empresas/${id}/toggle`, { method: 'PATCH' }),
     changePlan:              (id: number, plan_id: number) => request<any>(`/api/empresas/${id}/plan`, { method: 'PATCH', body: JSON.stringify({ plan_id }) }),
+    toggleCroquis:           (id: number, activo: boolean) => request<any>(`/api/empresas/${id}/croquis`, { method: 'PATCH', body: JSON.stringify({ activo }) }),
     miSuscripcion:           () => request<any>('/api/empresas/mi-suscripcion'),
     cancelarMiSuscripcion:   () => request<any>('/api/empresas/mi-suscripcion/cancelar', { method: 'POST' }),
     listUsuarios:            (empresaId: number) =>

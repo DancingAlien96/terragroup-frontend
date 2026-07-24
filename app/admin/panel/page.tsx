@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import {
   DollarSign, Building2, TrendingUp, Activity, Search, ArrowUp, ArrowDown,
-  Wallet, AlertTriangle, Trophy, Users,
+  Wallet, AlertTriangle, Trophy, Users, MapPinned,
 } from 'lucide-react';
 import UsuariosEmpresaModal from '@/components/admin/UsuariosEmpresaModal';
 
@@ -21,6 +21,7 @@ interface EmpresaRow {
   plan_nombre: string;
   plan_id: number;
   activo: boolean;
+  tiene_croquis: boolean;
   pago_suscripcion_id: string | null;
   total_usuarios: number;
   total_lotes: number;
@@ -143,6 +144,20 @@ export default function AdminPage() {
       loadData();
     } catch {
       showToast('Error al actualizar');
+    }
+  }
+
+  async function handleToggleCroquis(emp: EmpresaRow) {
+    // Optimistic UI: refleja el cambio y revierte si falla — evita que el
+    // super-admin espere un round-trip por un toggle tan simple.
+    const nuevo = !emp.tiene_croquis;
+    setEmpresas(prev => prev.map(e => e.id === emp.id ? { ...e, tiene_croquis: nuevo } : e));
+    try {
+      await api.empresas.toggleCroquis(emp.id, nuevo);
+      showToast(nuevo ? 'Croquis activado' : 'Croquis desactivado');
+    } catch {
+      setEmpresas(prev => prev.map(e => e.id === emp.id ? { ...e, tiene_croquis: !nuevo } : e));
+      showToast('Error al actualizar croquis');
     }
   }
 
@@ -545,7 +560,7 @@ export default function AdminPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
-                  {['#', 'Empresa', 'Plan', 'Estado', 'Usuarios', 'Lotes', 'Contratos', 'Acciones'].map(h => (
+                  {['#', 'Empresa', 'Plan', 'Estado', 'Croquis', 'Usuarios', 'Lotes', 'Contratos', 'Acciones'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -554,9 +569,9 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="px-6 py-10 text-center text-gray-400 text-sm">Cargando…</td></tr>
+                  <tr><td colSpan={9} className="px-6 py-10 text-center text-gray-400 text-sm">Cargando…</td></tr>
                 ) : empresasFiltradas.length === 0 ? (
-                  <tr><td colSpan={8} className="px-6 py-10 text-center text-gray-400 text-sm">
+                  <tr><td colSpan={9} className="px-6 py-10 text-center text-gray-400 text-sm">
                     {query ? 'Sin coincidencias' : 'Sin empresas registradas'}
                   </td></tr>
                 ) : empresasFiltradas.map(emp => (
@@ -577,6 +592,16 @@ export default function AdminPage() {
                           emp.activo ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-red-100 text-red-600 hover:bg-red-200'
                         }`}>
                         {emp.activo ? 'Activo' : 'Inactivo'}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => handleToggleCroquis(emp)}
+                        title={emp.tiene_croquis ? 'Desactivar add-on de croquis' : 'Activar add-on de croquis'}
+                        className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${
+                          emp.tiene_croquis ? 'bg-[#fdf3d9] text-[#8a6910] hover:bg-[#f8e9b5]' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}>
+                        <MapPinned size={11}/>
+                        {emp.tiene_croquis ? 'Activo' : 'Inactivo'}
                       </button>
                     </td>
                     <td className="px-4 py-3 text-center text-gray-700">{emp.total_usuarios}</td>

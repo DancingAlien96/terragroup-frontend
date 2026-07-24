@@ -14,6 +14,8 @@ export interface AuthUser {
   plan: Plan;
   /** CSV de paths permitidos en el sidebar. null = todas las del plan. */
   secciones_permitidas: string | null;
+  /** Add-on de croquis (mapa con pins). Se activa desde el panel super-admin. */
+  tiene_croquis?: boolean;
 }
 
 export interface NavItem {
