@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, ImageUp, MapPin, X, Trash2, Copy, Eye, EyeOff,
-  RotateCw, Check, Save, Sparkles, Phone, Mail, MousePointerClick, Lock, Plus,
+  RotateCw, Check, Save, Phone, Mail, MousePointerClick, Lock, Plus,
+  Share2, Download, MessageCircle,
 } from 'lucide-react';
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { api } from '@/lib/api';
 import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 import { isReadOnly } from '@/lib/auth';
@@ -71,7 +73,6 @@ export default function CroquisEditorPage() {
   const [lotes,    setLotes]    = useState<LoteCroquis[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [uploading,setUploading]= useState(false);
-  const [copiado,  setCopiado]  = useState(false);
   const [addonInactivo, setAddonInactivo] = useState(false);
 
   // Interacción del canvas
@@ -80,6 +81,7 @@ export default function CroquisEditorPage() {
   const [selPin,      setSelPin]      = useState<number | null>(null);
   const [modalLote,   setModalLote]   = useState<LoteCroquis | null>(null);
   const [contactoOpen,setContactoOpen]= useState(false);
+  const [shareOpen,   setShareOpen]   = useState(false);
   // Coordenadas capturadas del click cuando se está creando un nuevo lote —
   // el modal las usa para dejar el pin colocado al terminar.
   const [modalNuevo,  setModalNuevo]  = useState<{ x: number; y: number } | null>(null);
@@ -219,15 +221,6 @@ export default function CroquisEditorPage() {
     }
   }
 
-  function copiarLink() {
-    if (!croquis?.publico_token) return;
-    const url = `${window.location.origin}/publico/croquis/${croquis.publico_token}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
-    });
-  }
-
   /* ── Render ──────────────────────────────────────────────── */
   if (loading) {
     return <div className="p-8 text-sm text-gray-400">Cargando croquis…</div>;
@@ -305,6 +298,17 @@ export default function CroquisEditorPage() {
         />
       )}
 
+      {shareOpen && croquis?.publico_token && (
+        <ShareCroquisModal
+          token={croquis.publico_token}
+          proyectoNombre={proyecto?.nombre ?? 'Proyecto'}
+          onClose={() => setShareOpen(false)}
+          onRegenerar={async () => {
+            await regenerarLink();
+          }}
+        />
+      )}
+
       {toast && (
         <div className="fixed bottom-6 right-6 z-[60] pointer-events-none">
           <div
@@ -353,37 +357,19 @@ export default function CroquisEditorPage() {
                 }`}
               >
                 {croquis.publico_activo ? <Eye size={14}/> : <EyeOff size={14}/>}
-                {croquis.publico_activo ? 'Público activo' : 'Público desactivado'}
+                {croquis.publico_activo ? 'Público activo' : 'Activar público'}
               </button>
+              {croquis.publico_activo && croquis.publico_token && (
+                <button
+                  onClick={() => setShareOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold bg-[#d4a843] hover:bg-[#b8922e] text-white px-3 py-2 rounded-lg"
+                >
+                  <Share2 size={14}/> Compartir
+                </button>
+              )}
             </div>
           )}
         </div>
-
-        {/* Link público */}
-        {croquis?.publico_activo && croquis.publico_token && (
-          <div className="bg-white rounded-2xl border border-green-100 shadow-sm p-4 flex items-center gap-3 flex-wrap">
-            <div className="w-10 h-10 rounded-xl bg-green-50 text-green-600 flex items-center justify-center shrink-0">
-              <Sparkles size={16} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Link público</p>
-              <p className="text-sm text-gray-700 truncate">
-                {typeof window !== 'undefined' ? `${window.location.origin}/publico/croquis/${croquis.publico_token}` : ''}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={copiarLink}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#d4a843] hover:bg-[#b8922e] text-white px-3 py-2 rounded-lg">
-                {copiado ? <Check size={12}/> : <Copy size={12}/>} {copiado ? 'Copiado' : 'Copiar'}
-              </button>
-              <button onClick={regenerarLink}
-                title="Regenerar link (invalida el anterior)"
-                className="inline-flex items-center text-xs font-semibold border border-gray-200 hover:border-gray-300 text-gray-600 px-2.5 py-2 rounded-lg">
-                <RotateCw size={12}/>
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Área principal: sin croquis → uploader; con croquis → canvas + sidebar */}
         {!croquis ? (
@@ -856,6 +842,164 @@ function ContactoModal({
             className="flex-1 bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-xl">
             {saving ? 'Guardando…' : 'Guardar contacto'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* Modal: compartir croquis público (QR + link + WhatsApp/email)*/
+
+function ShareCroquisModal({
+  token, proyectoNombre, onClose, onRegenerar,
+}: {
+  token: string;
+  proyectoNombre: string;
+  onClose: () => void;
+  onRegenerar: () => Promise<void>;
+}) {
+  const url = typeof window !== 'undefined' ? `${window.location.origin}/publico/croquis/${token}` : '';
+  const mensaje = `Mira el croquis del proyecto ${proyectoNombre}: ${url}`;
+  const [copiado,     setCopiado]     = useState(false);
+  const [regenerando, setRegenerando] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  function copiar() {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    });
+  }
+
+  // Descarga el QR como PNG. Uso el canvas oculto del <QRCodeCanvas> — Safari
+  // móvil no soporta bien blob URLs, así que uso dataURL (más pesado en RAM
+  // pero universalmente compatible).
+  function descargarQR() {
+    const canvas = qrRef.current?.querySelector('canvas');
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `croquis-${proyectoNombre.toLowerCase().replace(/\s+/g, '-')}-qr.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Web Share API: si el device lo soporta (móvil), abre el share sheet
+  // nativo — mucho mejor UX que abrir wa.me/mailto uno a uno.
+  async function shareNativo() {
+    if (typeof navigator === 'undefined' || !navigator.share) return;
+    try {
+      await navigator.share({
+        title: `Croquis ${proyectoNombre}`,
+        text:  mensaje,
+        url,
+      });
+    } catch {
+      // Cancelado por el usuario — silencioso.
+    }
+  }
+
+  async function regenerar() {
+    setRegenerando(true);
+    try { await onRegenerar(); }
+    finally { setRegenerando(false); }
+  }
+
+  const puedeShareNativo = typeof navigator !== 'undefined' && !!navigator.share;
+  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+  const mailHref     = `mailto:?subject=${encodeURIComponent(`Croquis del proyecto ${proyectoNombre}`)}&body=${encodeURIComponent(mensaje)}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+         onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[92vh] overflow-y-auto"
+           onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Compartir croquis</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Cualquiera con este link o QR puede ver el mapa público.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18}/></button>
+        </div>
+
+        <div className="px-6 py-5 flex flex-col gap-5">
+          {/* QR */}
+          <div className="flex flex-col items-center gap-3">
+            {/* Canvas para descarga, SVG para render crisp */}
+            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+              <QRCodeSVG value={url} size={200} level="M" bgColor="#ffffff" fgColor="#1a1a1a"/>
+            </div>
+            <div ref={qrRef} className="hidden">
+              <QRCodeCanvas value={url} size={512} level="M" bgColor="#ffffff" fgColor="#1a1a1a" marginSize={2}/>
+            </div>
+            <button onClick={descargarQR}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-[#d4a843]">
+              <Download size={12}/> Descargar QR
+            </button>
+          </div>
+
+          {/* Link + copiar */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-1.5">Link público</label>
+            <div className="flex items-stretch gap-2">
+              <input readOnly value={url}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2.5 text-xs text-gray-700 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#d4a843]"/>
+              <button onClick={copiar}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-[#d4a843] hover:bg-[#b8922e] text-white px-3 py-2 rounded-lg shrink-0">
+                {copiado ? <><Check size={12}/> Copiado</> : <><Copy size={12}/> Copiar</>}
+              </button>
+            </div>
+          </div>
+
+          {/* Botones directos */}
+          <div className="flex flex-col gap-2">
+            {puedeShareNativo && (
+              <button onClick={shareNativo}
+                className="inline-flex items-center justify-center gap-2 bg-[#1a1a1a] hover:bg-black text-white font-semibold text-sm px-4 py-2.5 rounded-xl">
+                <Share2 size={14}/> Compartir con app…
+              </button>
+            )}
+            <a href={whatsappHref} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl">
+              <MessageCircle size={14}/> Enviar por WhatsApp
+            </a>
+            <a href={mailHref}
+              className="inline-flex items-center justify-center gap-2 border border-gray-200 hover:border-[#d4a843] text-gray-800 font-semibold text-sm px-4 py-2.5 rounded-xl">
+              <Mail size={14}/> Enviar por correo
+            </a>
+          </div>
+
+          {/* Regenerar (invalidar link viejo) */}
+          <div className="border-t border-gray-100 pt-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold text-gray-700">Regenerar link</p>
+              <p className="text-[10px] text-gray-500 leading-relaxed">
+                Invalida el link y QR anteriores. Útil si ya no querés que quien lo tenga siga entrando.
+              </p>
+            </div>
+            <button onClick={regenerar} disabled={regenerando}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold border border-gray-200 hover:border-gray-300 text-gray-600 px-3 py-2 rounded-lg disabled:opacity-50 shrink-0">
+              <RotateCw size={12} className={regenerando ? 'animate-spin' : ''}/>
+              {regenerando ? 'Regenerando…' : 'Regenerar'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
