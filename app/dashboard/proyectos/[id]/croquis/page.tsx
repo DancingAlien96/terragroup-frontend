@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, ImageUp, MapPin, X, Trash2, Copy, Eye, EyeOff,
   RotateCw, Check, Save, Phone, Mail, MousePointerClick, Lock, Plus,
-  Share2, Download, MessageCircle,
+  Share2, Download, MessageCircle, Sparkles,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { api } from '@/lib/api';
@@ -44,6 +44,14 @@ interface Croquis {
 
 interface Proyecto {
   id: number; nombre: string; ubicacion: string | null;
+}
+
+interface VentaHuerfana {
+  id: number;
+  nombre_comprador: string | null;
+  descripcion_lote: string | null;
+  precio_total:     number;
+  fecha_inicio:     string | null;
 }
 
 const ESTADO_COLOR: Record<EstadoLote, string> = {
@@ -85,6 +93,9 @@ export default function CroquisEditorPage() {
   // Coordenadas capturadas del click cuando se está creando un nuevo lote —
   // el modal las usa para dejar el pin colocado al terminar.
   const [modalNuevo,  setModalNuevo]  = useState<{ x: number; y: number } | null>(null);
+  // Después de crear un lote, si hay ventas huérfanas del proyecto se abre
+  // el modal de auto-vinculación con las sugerencias ya scoreadas.
+  const [autoVincular, setAutoVincular] = useState<{ lote: LoteCroquis; candidatas: CandidataVincular[] } | null>(null);
   const [toast,       setToast]       = useState<{ msg: string; kind: 'ok' | 'err' } | null>(null);
 
   // Toast auto-dismiss — evita acumular timeouts si el usuario dispara varios
@@ -290,10 +301,38 @@ export default function CroquisEditorPage() {
           proyectoId={proyectoId}
           existentes={lotes}
           onClose={() => setModalNuevo(null)}
-          onCreated={(nuevo) => {
+          onCreated={async (nuevo) => {
             setLotes(prev => [...prev, nuevo]);
             setModalNuevo(null);
             notifyOk(`Lote ${loteEtiqueta(nuevo)} creado`);
+            // Después de crear, buscar ventas huérfanas del proyecto que
+            // podrían coincidir con este lote por texto de descripción.
+            try {
+              const huerfanas = await api.ventas.sinLote(proyectoId) as VentaHuerfana[];
+              const candidatas = scorearCandidatas(nuevo, huerfanas);
+              if (candidatas.length > 0) {
+                setAutoVincular({ lote: nuevo, candidatas });
+              }
+            } catch {
+              /* silencioso — la auto-vinculación es opcional */
+            }
+          }}
+        />
+      )}
+
+      {autoVincular && (
+        <AutoVincularVentasModal
+          lote={autoVincular.lote}
+          candidatas={autoVincular.candidatas}
+          onClose={() => setAutoVincular(null)}
+          onVinculadas={(n) => {
+            setAutoVincular(null);
+            if (n > 0) {
+              notifyOk(`${n} venta${n === 1 ? '' : 's'} vinculada${n === 1 ? '' : 's'} al lote`);
+              // Recargar para reflejar estados actualizados (vendido si se
+              // vinculó una venta)
+              load();
+            }
           }}
         />
       )}
@@ -1186,6 +1225,163 @@ function NuevoLoteModal({
           <button type="button" onClick={handleSubmit} disabled={saving}
             className="flex-1 bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5">
             <Plus size={13}/> {saving ? 'Creando…' : 'Crear lote'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* Auto-vincular ventas huérfanas al lote recién creado         */
+
+interface CandidataVincular extends VentaHuerfana {
+  score:        number;    // 0-3
+  preseleccion: boolean;   // score >= 2
+}
+
+/**
+ * Puntúa las ventas huérfanas contra el lote recién creado:
+ *  +2 si la descripción contiene la clave completa del lote
+ *  +1 por match del número
+ *  +1 por match de la manzana
+ * Devuelve las de score >= 1 ordenadas de mayor a menor score. Las de
+ * score >= 2 se preseleccionan (matches "fuertes").
+ */
+function scorearCandidatas(lote: LoteCroquis, ventas: VentaHuerfana[]): CandidataVincular[] {
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const clave   = norm(lote.clave);
+  const numero  = lote.numero  ? norm(lote.numero)  : '';
+  const manzana = lote.manzana ? norm(lote.manzana) : '';
+
+  const resultado: CandidataVincular[] = [];
+  for (const v of ventas) {
+    if (!v.descripcion_lote) continue;
+    const desc = norm(v.descripcion_lote);
+    let score = 0;
+    // Match de clave completa como palabra separada
+    if (clave && new RegExp(`\\b${escapeRegExp(clave)}\\b`).test(desc)) score += 2;
+    // Match de número (como palabra) — evita false positives con "1435" vs "143"
+    if (numero  && new RegExp(`\\b${escapeRegExp(numero)}\\b`).test(desc)) score += 1;
+    // Match de manzana (como palabra o pegado a "manzana")
+    if (manzana && new RegExp(`\\b${escapeRegExp(manzana)}\\b`).test(desc)) score += 1;
+
+    if (score >= 1) resultado.push({ ...v, score, preseleccion: score >= 2 });
+  }
+  return resultado.sort((a, b) => b.score - a.score);
+}
+
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function AutoVincularVentasModal({
+  lote, candidatas, onClose, onVinculadas,
+}: {
+  lote: LoteCroquis;
+  candidatas: CandidataVincular[];
+  onClose: () => void;
+  onVinculadas: (n: number) => void;
+}) {
+  const [seleccion, setSeleccion] = useState<Set<number>>(
+    () => new Set(candidatas.filter(c => c.preseleccion).map(c => c.id)),
+  );
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  function toggle(id: number) {
+    setSeleccion(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else               next.add(id);
+      return next;
+    });
+  }
+
+  async function handleVincular() {
+    if (seleccion.size === 0) { onClose(); return; }
+    setSaving(true); setError('');
+    try {
+      // Vincula en paralelo — cada llamada es independiente
+      const results = await Promise.allSettled(
+        [...seleccion].map(vid => api.ventas.vincularLote(vid, lote.id)),
+      );
+      const okCount = results.filter(r => r.status === 'fulfilled').length;
+      onVinculadas(okCount);
+    } catch (e: any) {
+      setError(e?.message ?? 'Error al vincular');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+         onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#d4a843] mb-1">
+              <Sparkles size={11}/> Sugerencia
+            </div>
+            <h2 className="text-lg font-bold text-gray-900">¿Alguna de estas ventas es del lote {loteEtiqueta(lote)}?</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Encontramos {candidatas.length} venta{candidatas.length === 1 ? '' : 's'} sin lote vinculado cuya descripción coincide.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 shrink-0"><X size={18}/></button>
+        </div>
+
+        <ul className="px-6 py-4 flex flex-col gap-2 max-h-[55vh] overflow-y-auto">
+          {candidatas.map((c) => {
+            const checked = seleccion.has(c.id);
+            return (
+              <li key={c.id}>
+                <label className={`flex items-start gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${
+                  checked ? 'border-[#d4a843] bg-[#fdf3d9]/50' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <input type="checkbox" checked={checked} onChange={() => toggle(c.id)}
+                    className="mt-0.5 accent-[#d4a843]"/>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-gray-900 truncate">{c.nombre_comprador ?? 'Sin nombre'}</p>
+                      {c.score >= 2 && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 uppercase tracking-wide shrink-0">
+                          Match fuerte
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">
+                      &ldquo;{c.descripcion_lote}&rdquo;
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Q{c.precio_total.toLocaleString('es-GT')}
+                    </p>
+                  </div>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+
+        {error && <div className="mx-6 mb-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-2.5">{error}</div>}
+
+        <div className="px-6 py-3 border-t border-gray-100 flex gap-3">
+          <button onClick={onClose} disabled={saving}
+            className="flex-1 border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl hover:bg-gray-50 disabled:opacity-50">
+            No vincular
+          </button>
+          <button onClick={handleVincular} disabled={saving}
+            className="flex-1 bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-xl">
+            {saving ? 'Vinculando…' : seleccion.size === 0
+              ? 'Cerrar'
+              : `Vincular ${seleccion.size} venta${seleccion.size === 1 ? '' : 's'}`}
           </button>
         </div>
       </div>

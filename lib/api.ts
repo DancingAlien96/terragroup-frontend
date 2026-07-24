@@ -48,7 +48,11 @@ export const api = {
   pagos:         crud('/api/pagos'),
 
   // Ventas = clientes (alias). Misma fuente, dos nombres.
-  ventas,
+  ventas: {
+    ...ventas,
+    sinLote:      (proyectoId: number) => request<any[]>(`/api/ventas/sin-lote?proyecto_id=${proyectoId}`),
+    vincularLote: (ventaId: number, loteId: number) => request<any>(`/api/ventas/${ventaId}/lote`, { method: 'PATCH', body: JSON.stringify({ lote_id: loteId }) }),
+  },
   clientes: ventas,
 
   vendedores: {
