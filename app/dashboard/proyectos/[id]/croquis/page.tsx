@@ -61,7 +61,6 @@ function loteEtiqueta(l: LoteCroquis): string {
 
 export default function CroquisEditorPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const proyectoId = Number(params.id);
 
   const readOnly = typeof window !== 'undefined' ? isReadOnly() : false;
