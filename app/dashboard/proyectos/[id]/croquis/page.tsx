@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, ImageUp, MapPin, X, Trash2, Copy, Eye, EyeOff,
-  RotateCw, Check, Save, Sparkles, Phone, Mail, MousePointerClick, Lock,
+  RotateCw, Check, Save, Sparkles, Phone, Mail, MousePointerClick, Lock, Plus,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
@@ -75,11 +75,14 @@ export default function CroquisEditorPage() {
   const [addonInactivo, setAddonInactivo] = useState(false);
 
   // Interacción del canvas
-  const [modo,        setModo]        = useState<'ver' | 'colocando'>('ver');
+  const [modo,        setModo]        = useState<'ver' | 'colocando' | 'creando'>('ver');
   const [loteAColocar,setLoteAColocar]= useState<LoteCroquis | null>(null);
   const [selPin,      setSelPin]      = useState<number | null>(null);
   const [modalLote,   setModalLote]   = useState<LoteCroquis | null>(null);
   const [contactoOpen,setContactoOpen]= useState(false);
+  // Coordenadas capturadas del click cuando se está creando un nuevo lote —
+  // el modal las usa para dejar el pin colocado al terminar.
+  const [modalNuevo,  setModalNuevo]  = useState<{ x: number; y: number } | null>(null);
   const [toast,       setToast]       = useState<{ msg: string; kind: 'ok' | 'err' } | null>(null);
 
   // Toast auto-dismiss — evita acumular timeouts si el usuario dispara varios
@@ -146,11 +149,22 @@ export default function CroquisEditorPage() {
   /* ── Colocar / mover pin ─────────────────────────────────── */
   async function handleClickCanvas(e: React.MouseEvent<HTMLDivElement>) {
     if (readOnly) return;
-    if (modo !== 'colocando' || !loteAColocar) return;
+    if (modo === 'ver') return;
     const box = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - box.left) / box.width;
     const y = (e.clientY - box.top)  / box.height;
     if (x < 0 || x > 1 || y < 0 || y > 1) return;
+
+    // Modo "creando": abre modal de nuevo lote con las coords capturadas —
+    // el pin se coloca cuando el modal termina de crear el lote.
+    if (modo === 'creando') {
+      setModalNuevo({ x, y });
+      setModo('ver');
+      return;
+    }
+
+    // Modo "colocando": mueve el pin del lote seleccionado.
+    if (!loteAColocar) return;
     try {
       const upd = await api.croquis.setPin(loteAColocar.id, { punto_x: x, punto_y: y });
       setLotes(prev => prev.map(l => l.id === upd.id ? { ...l, punto_x: upd.punto_x, punto_y: upd.punto_y } : l));
@@ -277,6 +291,20 @@ export default function CroquisEditorPage() {
         />
       )}
 
+      {modalNuevo && (
+        <NuevoLoteModal
+          coords={modalNuevo}
+          proyectoId={proyectoId}
+          existentes={lotes}
+          onClose={() => setModalNuevo(null)}
+          onCreated={(nuevo) => {
+            setLotes(prev => [...prev, nuevo]);
+            setModalNuevo(null);
+            notifyOk(`Lote ${loteEtiqueta(nuevo)} creado`);
+          }}
+        />
+      )}
+
       {toast && (
         <div className="fixed bottom-6 right-6 z-[60] pointer-events-none">
           <div
@@ -376,6 +404,18 @@ export default function CroquisEditorPage() {
                   </button>
                 </div>
               )}
+              {modo === 'creando' && (
+                <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2 text-sm">
+                  <Plus size={14} className="text-blue-700"/>
+                  <span className="text-blue-700 font-semibold">
+                    Haz click sobre el plano donde quieres crear el nuevo lote
+                  </span>
+                  <button onClick={() => setModo('ver')}
+                    className="ml-auto text-xs text-blue-700 hover:underline">
+                    Cancelar
+                  </button>
+                </div>
+              )}
 
               <CanvasCroquis
                 imagenUrl={croquis.imagen_url}
@@ -415,6 +455,7 @@ export default function CroquisEditorPage() {
               onSelectPin={(id) => { setSelPin(id); const l = lotes.find(x => x.id === id); if (l) setModalLote(l); }}
               onColocar={(l) => { setLoteAColocar(l); setModo('colocando'); }}
               onQuitarPin={handleQuitarPin}
+              onNuevoLote={() => setModo('creando')}
             />
           </div>
         )}
@@ -469,16 +510,17 @@ function CanvasCroquis({
   imagenAncho: number | null;
   imagenAlto:  number | null;
   lotes: LoteCroquis[];
-  modo: 'ver' | 'colocando';
+  modo: 'ver' | 'colocando' | 'creando';
   selPin: number | null;
   onClick: (e: React.MouseEvent<HTMLDivElement>) => void;
   onPinClick: (id: number) => void;
 }) {
   const aspect = imagenAncho && imagenAlto ? imagenAncho / imagenAlto : undefined;
+  const clickeable = modo === 'colocando' || modo === 'creando';
 
   return (
     <div
-      className={`relative w-full bg-gray-50 select-none ${modo === 'colocando' ? 'cursor-crosshair' : ''}`}
+      className={`relative w-full bg-gray-50 select-none ${clickeable ? 'cursor-crosshair' : ''}`}
       style={{ aspectRatio: aspect }}
       onClick={onClick}
     >
@@ -536,14 +578,15 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 /* Sidebar de lotes                                             */
 
 function SidebarLotes({
-  lotes, readOnly, modo, onSelectPin, onColocar, onQuitarPin,
+  lotes, readOnly, modo, onSelectPin, onColocar, onQuitarPin, onNuevoLote,
 }: {
   lotes: LoteCroquis[];
   readOnly: boolean;
-  modo: 'ver' | 'colocando';
+  modo: 'ver' | 'colocando' | 'creando';
   onSelectPin: (id: number) => void;
   onColocar: (l: LoteCroquis) => void;
   onQuitarPin: (l: LoteCroquis) => void;
+  onNuevoLote: () => void;
 }) {
   const [tab, setTab] = useState<'sin' | 'con'>('sin');
   const conPin = lotes.filter(l => l.punto_x !== null && l.punto_y !== null);
@@ -551,6 +594,16 @@ function SidebarLotes({
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col max-h-[70vh]">
+      {!readOnly && (
+        <button
+          onClick={onNuevoLote}
+          disabled={modo !== 'ver'}
+          className="w-full bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-sm py-3 flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <Plus size={14} strokeWidth={2.5}/>
+          Nuevo lote con pin
+        </button>
+      )}
       <div className="border-b border-gray-100 flex">
         <button onClick={() => setTab('sin')}
           className={`flex-1 text-sm font-semibold py-3 transition-colors ${
@@ -802,6 +855,193 @@ function ContactoModal({
           <button onClick={handleSave} disabled={saving}
             className="flex-1 bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-xl">
             {saving ? 'Guardando…' : 'Guardar contacto'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* Modal: crear nuevo lote con pin ya colocado                  */
+
+function NuevoLoteModal({
+  coords, proyectoId, existentes, onClose, onCreated,
+}: {
+  coords: { x: number; y: number };
+  proyectoId: number;
+  existentes: LoteCroquis[];
+  onClose: () => void;
+  onCreated: (lote: LoteCroquis) => void;
+}) {
+  // Sugiere una clave única: L-N donde N = mayor "L-<n>" existente + 1, o
+  // total + 1 si no hay ninguna. El usuario puede sobrescribirla.
+  const claveSugerida = (() => {
+    const nums = existentes
+      .map(l => /^L-(\d+)$/.exec(l.clave))
+      .map(m => m ? Number(m[1]) : 0);
+    const max = nums.length ? Math.max(...nums) : 0;
+    return `L-${Math.max(max, existentes.length) + 1}`;
+  })();
+
+  const [clave,      setClave]      = useState(claveSugerida);
+  const [manzana,    setManzana]    = useState('');
+  const [numero,     setNumero]     = useState('');
+  const [superficie, setSuperficie] = useState('');
+  const [precio,     setPrecio]     = useState('');
+  const [estado,     setEstado]     = useState<EstadoLote>('disponible');
+  const [notas,      setNotas]      = useState('');
+  const [mostrarPrecio, setMostrarPrecio] = useState(true);
+  const [saving,     setSaving]     = useState(false);
+  const [error,      setError]      = useState('');
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    if (clave.trim().length < 1) {
+      setError('La clave del lote es requerida');
+      return;
+    }
+    setSaving(true);
+    try {
+      // 1) Crear el lote en el proyecto
+      const nuevoLote = await api.lotes.create({
+        proyecto_id:  proyectoId,
+        clave:        clave.trim(),
+        manzana:      manzana.trim() || undefined,
+        numero:       numero.trim()  || undefined,
+        superficie:   superficie ? Number(superficie) : undefined,
+        precio_venta: precio     ? Number(precio)     : undefined,
+        estado,
+      });
+      // 2) Colocar el pin en las coords capturadas y setear visibilidad pública
+      const [conPin] = await Promise.all([
+        api.croquis.setPin(nuevoLote.id, { punto_x: coords.x, punto_y: coords.y }),
+        (mostrarPrecio !== true || notas.trim())
+          ? api.croquis.updateVisibilidadLote(nuevoLote.id, {
+              mostrar_precio_publico: mostrarPrecio,
+              notas_publicas:         notas.trim() || null,
+            })
+          : Promise.resolve(null),
+      ]);
+      // Nota: si updateVisibilidadLote corrió, `conPin` puede estar desactualizado
+      // en esos dos campos — pero setPin devuelve el lote completo del backend,
+      // y la próxima recarga lo resincroniza. Para la UI inmediata usamos los
+      // valores locales.
+      onCreated({
+        ...conPin,
+        mostrar_precio_publico: mostrarPrecio,
+        notas_publicas:         notas.trim() || null,
+      });
+    } catch (e: any) {
+      // P2002 → clave duplicada. El mensaje del backend ya es amistoso.
+      setError(e?.message ?? 'Error al crear el lote');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+         onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Nuevo lote</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Se creará como <b>disponible</b> con el pin colocado donde hiciste click.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18}/></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                Clave <span className="text-red-500">*</span>
+              </label>
+              <input type="text" value={clave} onChange={(e) => setClave(e.target.value)}
+                maxLength={50} required
+                placeholder="L-1, A-01, Lote 143…"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]"/>
+              <p className="text-[10px] text-gray-400 mt-1">Identificador único del lote dentro de la empresa.</p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Manzana</label>
+              <input type="text" value={manzana} onChange={(e) => setManzana(e.target.value)}
+                maxLength={20} placeholder="A"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]"/>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Número</label>
+              <input type="text" value={numero} onChange={(e) => setNumero(e.target.value)}
+                maxLength={20} placeholder="01"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]"/>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Superficie (m²)</label>
+              <input type="number" min="0" step="0.01" value={superficie} onChange={(e) => setSuperficie(e.target.value)}
+                placeholder="120.00"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]"/>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Precio venta (Q)</label>
+              <input type="number" min="0" step="0.01" value={precio} onChange={(e) => setPrecio(e.target.value)}
+                placeholder="180000"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]"/>
+            </div>
+
+            <div className="col-span-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Estado</label>
+              <select value={estado} onChange={(e) => setEstado(e.target.value as EstadoLote)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843]">
+                <option value="disponible">Disponible</option>
+                <option value="reservado">Reservado</option>
+                <option value="vendido">Vendido</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 pt-4 flex flex-col gap-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Vista pública</p>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" checked={mostrarPrecio}
+                onChange={(e) => setMostrarPrecio(e.target.checked)}
+                className="mt-0.5 accent-[#d4a843]"/>
+              <div className="text-sm">
+                <p className="font-semibold text-gray-800">Mostrar precio en el croquis público</p>
+                <p className="text-xs text-gray-500">Si lo apagas, el precio no aparece en el link compartido.</p>
+              </div>
+            </label>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Notas públicas</label>
+              <textarea value={notas} onChange={(e) => setNotas(e.target.value)}
+                rows={2} maxLength={500}
+                placeholder="Ej. Vista al lago, esquinero, financiamiento a 60 meses…"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d4a843] resize-none"/>
+            </div>
+          </div>
+
+          {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-2.5">{error}</div>}
+        </form>
+
+        <div className="px-6 py-3 border-t border-gray-100 flex gap-3">
+          <button type="button" onClick={onClose} disabled={saving}
+            className="flex-1 border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl hover:bg-gray-50 disabled:opacity-50">
+            Cancelar
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={saving}
+            className="flex-1 bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5">
+            <Plus size={13}/> {saving ? 'Creando…' : 'Crear lote'}
           </button>
         </div>
       </div>
