@@ -28,6 +28,10 @@ interface LoteCroquis {
   punto_y:                number | null;
   mostrar_precio_publico: boolean;
   notas_publicas:         string | null;
+  // Cuántas ventas activas (no canceladas) tienen este lote_id. El editor lo
+  // usa para advertir al eliminar: al borrar el lote, esas ventas quedan con
+  // lote_id=null (se conservan por FK SetNull) pero pierden el vínculo.
+  total_ventas:           number;
 }
 
 interface Croquis {
@@ -185,6 +189,24 @@ export default function CroquisEditorPage() {
       notifyOk(`Pin colocado en ${loteEtiqueta(loteAColocar)}`);
     } catch (err: any) {
       showAlert(err?.message ?? 'Error al colocar pin');
+    }
+  }
+
+  async function handleEliminarLote(lote: LoteCroquis) {
+    const conVentas = lote.total_ventas > 0;
+    if (!await showConfirm(`¿Eliminar el lote ${loteEtiqueta(lote)}?`, {
+      description: conVentas
+        ? `Este lote tiene ${lote.total_ventas} venta${lote.total_ventas === 1 ? '' : 's'} activa${lote.total_ventas === 1 ? '' : 's'}. La${lote.total_ventas === 1 ? '' : 's'} venta${lote.total_ventas === 1 ? '' : 's'} se conserva${lote.total_ventas === 1 ? '' : 'n'} pero pierde${lote.total_ventas === 1 ? '' : 'n'} el vínculo al lote (queda${lote.total_ventas === 1 ? '' : 'n'} como "sin lote asignado"). Los pagos y expedientes NO se pierden.`
+        : 'Esta acción borra el lote del sistema. No se puede deshacer.',
+      danger: true, confirmLabel: 'Eliminar lote',
+    })) return;
+    try {
+      await api.lotes.delete(lote.id);
+      setLotes(prev => prev.filter(l => l.id !== lote.id));
+      setSelPin(null);
+      notifyOk(`Lote ${loteEtiqueta(lote)} eliminado`);
+    } catch (e: any) {
+      showAlert(e?.message ?? 'Error al eliminar el lote');
     }
   }
 
@@ -480,6 +502,7 @@ export default function CroquisEditorPage() {
               onSelectPin={(id) => { setSelPin(id); const l = lotes.find(x => x.id === id); if (l) setModalLote(l); }}
               onColocar={(l) => { setLoteAColocar(l); setModo('colocando'); }}
               onQuitarPin={handleQuitarPin}
+              onEliminar={handleEliminarLote}
               onNuevoLote={() => setModo('creando')}
             />
           </div>
@@ -603,7 +626,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 /* Sidebar de lotes                                             */
 
 function SidebarLotes({
-  lotes, readOnly, modo, onSelectPin, onColocar, onQuitarPin, onNuevoLote,
+  lotes, readOnly, modo, onSelectPin, onColocar, onQuitarPin, onEliminar, onNuevoLote,
 }: {
   lotes: LoteCroquis[];
   readOnly: boolean;
@@ -611,6 +634,7 @@ function SidebarLotes({
   onSelectPin: (id: number) => void;
   onColocar: (l: LoteCroquis) => void;
   onQuitarPin: (l: LoteCroquis) => void;
+  onEliminar: (l: LoteCroquis) => void;
   onNuevoLote: () => void;
 }) {
   const [tab, setTab] = useState<'sin' | 'con'>('sin');
@@ -659,16 +683,26 @@ function SidebarLotes({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800 truncate">Lote {loteEtiqueta(l)}</p>
-                    <p className="text-[11px] text-gray-500">{ESTADO_LABEL[l.estado]}{l.superficie ? ` · ${l.superficie} m²` : ''}</p>
+                    <p className="text-[11px] text-gray-500">
+                      {ESTADO_LABEL[l.estado]}{l.superficie ? ` · ${l.superficie} m²` : ''}
+                      {l.total_ventas > 0 ? ` · ${l.total_ventas} venta${l.total_ventas === 1 ? '' : 's'}` : ''}
+                    </p>
                   </div>
                   {!readOnly && (
-                    <button
-                      onClick={() => onColocar(l)}
-                      disabled={modo === 'colocando'}
-                      className="text-[11px] font-bold bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg"
-                    >
-                      Colocar
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => onColocar(l)}
+                        disabled={modo === 'colocando'}
+                        className="text-[11px] font-bold bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg"
+                      >
+                        Colocar
+                      </button>
+                      <button onClick={() => onEliminar(l)}
+                        title="Eliminar lote"
+                        className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50">
+                        <Trash2 size={13}/>
+                      </button>
+                    </div>
                   )}
                 </li>
               ))}
@@ -688,14 +722,24 @@ function SidebarLotes({
                   </div>
                   <button onClick={() => onSelectPin(l.id)} className="flex-1 min-w-0 text-left">
                     <p className="text-sm font-semibold text-gray-800 truncate">Lote {loteEtiqueta(l)}</p>
-                    <p className="text-[11px] text-gray-500">{ESTADO_LABEL[l.estado]}{l.superficie ? ` · ${l.superficie} m²` : ''}</p>
+                    <p className="text-[11px] text-gray-500">
+                      {ESTADO_LABEL[l.estado]}{l.superficie ? ` · ${l.superficie} m²` : ''}
+                      {l.total_ventas > 0 ? ` · ${l.total_ventas} venta${l.total_ventas === 1 ? '' : 's'}` : ''}
+                    </p>
                   </button>
                   {!readOnly && (
-                    <button onClick={() => onQuitarPin(l)}
-                      title="Quitar pin"
-                      className="text-gray-400 hover:text-red-600 p-1">
-                      <Trash2 size={13}/>
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => onQuitarPin(l)}
+                        title="Quitar pin (conserva el lote)"
+                        className="text-gray-400 hover:text-amber-600 p-1.5 rounded-lg hover:bg-amber-50">
+                        <MapPin size={13}/>
+                      </button>
+                      <button onClick={() => onEliminar(l)}
+                        title="Eliminar lote"
+                        className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50">
+                        <Trash2 size={13}/>
+                      </button>
+                    </div>
                   )}
                 </li>
               ))}
