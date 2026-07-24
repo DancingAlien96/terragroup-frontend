@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Eye, EyeOff, KeyRound, User, X, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, User, X, ArrowLeft, IdCard, Mail } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useDialog } from '@/lib/useDialog';
 
@@ -138,6 +138,8 @@ function EditarCredencialesForm({
   onBack:    () => void;
   onSaved:   () => void;
 }) {
+  const [nombre,   setNombre]   = useState(usuario.nombre);
+  const [emailV,   setEmailV]   = useState(usuario.email);
   const [username, setUsername] = useState(usuario.username);
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd]   = useState(false);
@@ -145,11 +147,18 @@ function EditarCredencialesForm({
   const [error,    setError]    = useState('');
   const { showAlert, DialogJSX } = useDialog();
 
+  const nombreChanged   = nombre.trim() !== usuario.nombre;
+  const emailChanged    = emailV.trim().toLowerCase() !== usuario.email.toLowerCase();
   const usernameChanged = username.trim() !== usuario.username;
   const passwordSet     = password.length > 0;
-  const puedeGuardar =
-    (usernameChanged && username.trim().length >= 3) ||
-    (passwordSet && password.length >= 6);
+
+  const nombreValido   = !nombreChanged   || nombre.trim().length >= 2;
+  const emailValido    = !emailChanged    || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailV.trim());
+  const usernameValido = !usernameChanged || username.trim().length >= 3;
+  const passwordValido = !passwordSet     || password.length >= 6;
+
+  const algunCambio = nombreChanged || emailChanged || usernameChanged || passwordSet;
+  const puedeGuardar = algunCambio && nombreValido && emailValido && usernameValido && passwordValido;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -157,11 +166,13 @@ function EditarCredencialesForm({
     if (!puedeGuardar) return;
     setSaving(true);
     try {
-      const body: { username?: string; password?: string } = {};
+      const body: { username?: string; password?: string; nombre?: string; email?: string } = {};
+      if (nombreChanged)   body.nombre   = nombre.trim();
+      if (emailChanged)    body.email    = emailV.trim();
       if (usernameChanged) body.username = username.trim();
       if (passwordSet)     body.password = password;
       await api.empresas.updateCredenciales(empresaId, usuario.id, body);
-      showAlert('Credenciales actualizadas correctamente', 'success');
+      showAlert('Datos actualizados correctamente', 'success');
       setTimeout(onSaved, 800);
     } catch (e: any) {
       setError(e?.message ?? 'Error al actualizar');
@@ -186,6 +197,42 @@ function EditarCredencialesForm({
           <p className="font-semibold text-sm text-[#1a1a1a] truncate">{usuario.nombre}</p>
           <p className="text-xs text-gray-500 truncate">{usuario.email}</p>
         </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Nombre completo</label>
+        <div className="relative">
+          <IdCard size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            maxLength={100}
+            placeholder="Ej. Carlos Fernando Heredia"
+            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d4a843]"
+          />
+        </div>
+        {nombreChanged && nombre.trim().length < 2 && (
+          <p className="text-xs text-red-500 mt-1">Mínimo 2 caracteres</p>
+        )}
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Email</label>
+        <div className="relative">
+          <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="email"
+            value={emailV}
+            onChange={(e) => setEmailV(e.target.value)}
+            maxLength={150}
+            placeholder="usuario@empresa.com"
+            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d4a843]"
+          />
+        </div>
+        {emailChanged && !emailValido && (
+          <p className="text-xs text-red-500 mt-1">Email inválido</p>
+        )}
       </div>
 
       <div>
