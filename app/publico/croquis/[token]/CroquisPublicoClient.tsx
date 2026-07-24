@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { MapPin, X, MessageCircle, Mail, Info, Loader2 } from 'lucide-react';
-import { resolveFileUrl } from '@/lib/uploadFile';
+import { MapPin, X, MessageCircle, Mail, Info, Loader2, ImageOff } from 'lucide-react';
 
 /**
  * Vista pública del croquis — link tipo /publico/croquis/:token que el dueño
@@ -61,6 +60,7 @@ export default function CroquisPublicoClient({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
   const [selLote, setSelLote] = useState<LotePublico | null>(null);
+  const [imgFallo, setImgFallo] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -147,13 +147,22 @@ export default function CroquisPublicoClient({ token }: { token: string }) {
 
         <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="relative w-full bg-gray-50" style={{ aspectRatio: aspect }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={resolveFileUrl(data.imagen_url)}
-              alt={`Croquis de ${data.proyecto_nombre}`}
-              className="w-full h-full object-contain pointer-events-none select-none"
-              draggable={false}
-            />
+            {imgFallo ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 text-gray-500">
+                <ImageOff size={32} className="text-gray-300 mb-2"/>
+                <p className="text-sm font-semibold">No se pudo cargar el plano</p>
+                <p className="text-xs mt-1">Los pins de los lotes siguen visibles arriba del área.</p>
+              </div>
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={data.imagen_url}
+                alt={`Croquis de ${data.proyecto_nombre}`}
+                className="w-full h-full object-contain pointer-events-none select-none"
+                draggable={false}
+                onError={() => setImgFallo(true)}
+              />
+            )}
             {data.lotes.map((l) => (
               <button
                 key={l.id}
