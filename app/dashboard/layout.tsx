@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getStoredUser, getStoredToken, logout, planAllows } from '@/lib/auth';
 import TrialBanner from '@/components/dashboard/TrialBanner';
+import PlanInfoModal from '@/components/dashboard/PlanInfoModal';
 import type { AuthUser, Plan } from '@/types';
 
 /* ── Nav items with plan restriction ─────────────────────────── */
@@ -151,6 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [user, setUser] = useState<AuthUser | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [planInfoOpen, setPlanInfoOpen] = useState(false);
 
   useEffect(() => {
     const token = getStoredToken();
@@ -269,9 +271,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Plan badge + logout + collapse */}
         <div className="p-3 border-t border-gray-100 flex flex-col gap-2">
           {!collapsed && (
-            <div className={`text-xs font-semibold px-3 py-1.5 rounded-lg text-center ${PLAN_COLOR[user.plan]}`}>
+            <button
+              type="button"
+              onClick={() => setPlanInfoOpen(true)}
+              title="Ver qué incluye tu plan"
+              className={`text-xs font-semibold px-3 py-1.5 rounded-lg text-center transition-transform hover:scale-[1.02] hover:shadow-sm cursor-pointer ${PLAN_COLOR[user.plan]}`}
+            >
               Plan {PLAN_LABEL[user.plan]}
-            </div>
+            </button>
           )}
           <button
             onClick={handleLogout}
@@ -330,6 +337,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Page content */}
         <main className="flex-1 p-4 md:p-6 overflow-auto">{children}</main>
       </div>
+
+      {/* Modal informativo del plan actual — se abre desde la etiqueta del sidebar */}
+      <PlanInfoModal
+        abierto={planInfoOpen}
+        plan={user.plan}
+        onClose={() => setPlanInfoOpen(false)}
+      />
     </div>
   );
 }
