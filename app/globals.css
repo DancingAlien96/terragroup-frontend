@@ -23,3 +23,39 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+/* ── Fix teclado iOS en modales ──────────────────────────────────────
+   Safari iOS (iPad/iPhone) rompe los modales `position: fixed + flex
+   items-center` cuando el teclado abre: el layout viewport se mantiene
+   en 100vh pero el visualViewport se encoge, y como el modal es fixed,
+   iOS scrollea el body para acercar el input al teclado — el modal
+   entero se ve empujado hacia arriba o desalineado.
+
+   Fix CSS-only: el backdrop pasa a ser un contenedor scrollable propio
+   con overflow-y auto. iOS ya no scrollea el body, scrollea el backdrop
+   (legítimo). Se usa align-items: flex-start + margin auto en el hijo
+   para conservar el centrado cuando cabe y permitir scroll cuando no.
+   min-height: 100dvh (iOS 15.4+) se ajusta al viewport real cuando el
+   teclado está abierto.
+
+   Se targetea via selectores de atributo la combinación de clases
+   Tailwind ya presente en todos los modales del proyecto — cero
+   cambios en JSX. ─────────────────────────────────────────────────── */
+.fixed.inset-0.z-50.flex.items-center.justify-center[class*="bg-black"] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Truco clave para iOS: forzar la altura al visualViewport real vía dvh
+     (no vh). Cuando el teclado abre, dvh se encoge y el modal overflowea
+     → el scroll interno del backdrop se activa → iOS scrollea aquí en
+     vez del body. */
+  height: 100vh;                   /* fallback */
+  height: 100dvh;                  /* iOS 15.4+, moderno */
+  /* Con align-items: flex-start + margin auto en el hijo: cuando el modal
+     cabe queda centrado; cuando no, se queda arriba y el backdrop scrollea. */
+  align-items: flex-start;
+}
+.fixed.inset-0.z-50.flex.items-center.justify-center[class*="bg-black"] > * {
+  margin-top: auto;
+  margin-bottom: auto;
+}
