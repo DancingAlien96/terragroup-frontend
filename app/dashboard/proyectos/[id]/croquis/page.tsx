@@ -80,6 +80,17 @@ export default function CroquisEditorPage() {
   const [selPin,      setSelPin]      = useState<number | null>(null);
   const [modalLote,   setModalLote]   = useState<LoteCroquis | null>(null);
   const [contactoOpen,setContactoOpen]= useState(false);
+  const [toast,       setToast]       = useState<{ msg: string; kind: 'ok' | 'err' } | null>(null);
+
+  // Toast auto-dismiss — evita acumular timeouts si el usuario dispara varios
+  // guardados seguidos.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 1800);
+    return () => clearTimeout(t);
+  }, [toast]);
+  const notifyOk  = useCallback((msg: string) => setToast({ msg, kind: 'ok'  }), []);
+  const notifyErr = useCallback((msg: string) => setToast({ msg, kind: 'err' }), []);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(proyectoId)) return;
@@ -124,6 +135,7 @@ export default function CroquisEditorPage() {
         imagen_alto:  alto,
       });
       setCroquis(c as Croquis);
+      notifyOk('Plano guardado');
     } catch (e: any) {
       showAlert(e?.message ?? 'Error al subir la imagen');
     } finally {
@@ -143,6 +155,7 @@ export default function CroquisEditorPage() {
       const upd = await api.croquis.setPin(loteAColocar.id, { punto_x: x, punto_y: y });
       setLotes(prev => prev.map(l => l.id === upd.id ? { ...l, punto_x: upd.punto_x, punto_y: upd.punto_y } : l));
       setModo('ver'); setLoteAColocar(null);
+      notifyOk(`Pin colocado en ${loteEtiqueta(loteAColocar)}`);
     } catch (err: any) {
       showAlert(err?.message ?? 'Error al colocar pin');
     }
@@ -157,6 +170,7 @@ export default function CroquisEditorPage() {
       const upd = await api.croquis.quitarPin(lote.id);
       setLotes(prev => prev.map(l => l.id === upd.id ? { ...l, punto_x: null, punto_y: null } : l));
       setSelPin(null);
+      notifyOk('Pin eliminado');
     } catch (e: any) {
       showAlert(e?.message ?? 'Error al quitar pin');
     }
@@ -170,6 +184,7 @@ export default function CroquisEditorPage() {
         ? await api.croquis.desactivarPublico(croquis.id)
         : await api.croquis.activarPublico(croquis.id);
       setCroquis(c as Croquis);
+      notifyOk(c.publico_activo ? 'Vista pública activada' : 'Vista pública desactivada');
     } catch (e: any) {
       showAlert(e?.message ?? 'Error al cambiar visibilidad');
     }
@@ -184,6 +199,7 @@ export default function CroquisEditorPage() {
     try {
       const c = await api.croquis.regenerarToken(croquis.id);
       setCroquis(c as Croquis);
+      notifyOk('Link regenerado');
     } catch (e: any) {
       showAlert(e?.message ?? 'Error al regenerar');
     }
@@ -248,6 +264,7 @@ export default function CroquisEditorPage() {
           onSaved={(l) => {
             setLotes(prev => prev.map(x => x.id === l.id ? l : x));
             setModalLote(null);
+            notifyOk(`Cambios guardados en ${loteEtiqueta(l)}`);
           }}
         />
       )}
@@ -256,8 +273,23 @@ export default function CroquisEditorPage() {
         <ContactoModal
           croquis={croquis}
           onClose={() => setContactoOpen(false)}
-          onSaved={(c) => { setCroquis(c); setContactoOpen(false); }}
+          onSaved={(c) => { setCroquis(c); setContactoOpen(false); notifyOk('Contacto actualizado'); }}
         />
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[60] pointer-events-none">
+          <div
+            className={`inline-flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl shadow-lg border animate-[fadeIn_.18s_ease-out] ${
+              toast.kind === 'ok'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}
+          >
+            {toast.kind === 'ok' ? <Check size={14} strokeWidth={3}/> : <X size={14} strokeWidth={3}/>}
+            {toast.msg}
+          </div>
+        </div>
       )}
 
       <div className="space-y-4">

@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Layers, Plus, MapPin, MoreVertical, Edit2, Trash2, Power, X, AlertCircle, MapPinned } from 'lucide-react';
+import { Layers, Plus, MapPin, MoreVertical, Edit2, Trash2, Power, X, AlertCircle, MapPinned, ImageUp } from 'lucide-react';
 import { api } from '@/lib/api';
 import { getStoredUser, isReadOnly } from '@/lib/auth';
 import { useDialog } from '@/lib/useDialog';
 import { LIMITS } from '@/lib/schemaLimits';
 import { fmtDate } from '@/lib/fmtDate';
+import { uploadFile, resolveFileUrl } from '@/lib/uploadFile';
 
 interface Proyecto {
   id:           number;
@@ -15,6 +16,7 @@ interface Proyecto {
   nombre:       string;
   descripcion:  string | null;
   ubicacion:    string | null;
+  portada_url:  string | null;
   activo:       boolean;
   total_lotes:  number;
   created_at:   string;
@@ -202,49 +204,69 @@ export default function ProyectosPage() {
                   p.activo ? 'border-gray-100' : 'border-gray-200 opacity-70'
                 }`}
               >
-                {/* Menú acciones */}
-                {!readOnly && (
-                  <div className="absolute top-3 right-3 z-10">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === p.id ? null : p.id); }}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
-                    >
-                      <MoreVertical size={16} />
-                    </button>
-                    {menuOpen === p.id && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute right-0 mt-1 w-44 bg-white border border-gray-100 rounded-lg shadow-lg py-1 z-20"
-                      >
-                        <button onClick={() => openEdit(p)}
-                          className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                          <Edit2 size={12} /> Editar
-                        </button>
-                        <button onClick={() => handleToggleActivo(p)}
-                          className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                          <Power size={12} /> {p.activo ? 'Desactivar' : 'Reactivar'}
-                        </button>
-                        <button onClick={() => handleDelete(p)}
-                          className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-100 mt-1 pt-2">
-                          <Trash2 size={12} /> Eliminar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="p-5">
-                  <div className="w-10 h-10 rounded-xl bg-[#fdf3d9] flex items-center justify-center mb-3">
-                    <Layers size={18} className="text-[#d4a843]" />
-                  </div>
-
-                  <h3 className="font-bold text-[#1a1a1a] text-base pr-6">{p.nombre}</h3>
-                  {!p.activo && (
-                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600 mt-1">Inactivo</span>
+                {/* Portada (hero) — imagen si existe, gradient placeholder si no */}
+                <div className="relative aspect-[16/9] bg-gradient-to-br from-[#fdf3d9] via-[#f8e4a8] to-[#d4a843]/40 overflow-hidden">
+                  {p.portada_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={resolveFileUrl(p.portada_url)}
+                      alt={`Portada de ${p.nombre}`}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Layers size={40} className="text-[#d4a843]/60"/>
+                    </div>
                   )}
 
+                  {/* Lápiz editar — sobre la portada, siempre visible para el dueño */}
+                  {!readOnly && (
+                    <button
+                      onClick={() => openEdit(p)}
+                      title="Editar proyecto y portada"
+                      className="absolute top-3 right-3 z-10 bg-white/95 hover:bg-white shadow-md text-gray-700 hover:text-[#d4a843] w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+                    >
+                      <Edit2 size={14}/>
+                    </button>
+                  )}
+
+                  {/* Menú extra (desactivar / eliminar) */}
+                  {!readOnly && (
+                    <div className="absolute top-3 right-14 z-10">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === p.id ? null : p.id); }}
+                        className="bg-white/95 hover:bg-white shadow-md text-gray-500 hover:text-gray-800 w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+                      >
+                        <MoreVertical size={14} />
+                      </button>
+                      {menuOpen === p.id && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-0 mt-1 w-44 bg-white border border-gray-100 rounded-lg shadow-lg py-1 z-20"
+                        >
+                          <button onClick={() => handleToggleActivo(p)}
+                            className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                            <Power size={12} /> {p.activo ? 'Desactivar' : 'Reactivar'}
+                          </button>
+                          <button onClick={() => handleDelete(p)}
+                            className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-100 mt-1 pt-2">
+                            <Trash2 size={12} /> Eliminar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!p.activo && (
+                    <span className="absolute top-3 left-3 z-10 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/95 text-white shadow-md">Inactivo</span>
+                  )}
+                </div>
+
+                <div className="p-5">
+                  <h3 className="font-bold text-[#1a1a1a] text-base">{p.nombre}</h3>
+
                   {p.ubicacion && (
-                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-2">
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1.5">
                       <MapPin size={11} />
                       {p.ubicacion}
                     </p>
@@ -297,9 +319,23 @@ function ProyectoModal({
     ubicacion:   proyecto?.ubicacion    ?? '',
     descripcion: proyecto?.descripcion  ?? '',
   });
-  const [saving, setSaving] = useState(false);
-  const [error,  setError]  = useState('');
+  const [portadaUrl, setPortadaUrl] = useState<string | null>(proyecto?.portada_url ?? null);
+  const [uploading,  setUploading]  = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [error,      setError]      = useState('');
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  async function handlePortada(file: File) {
+    setUploading(true); setError('');
+    try {
+      const up = await uploadFile(file);
+      setPortadaUrl(up.url);
+    } catch (e: any) {
+      setError(e?.message ?? 'Error al subir la portada');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -313,6 +349,7 @@ function ProyectoModal({
       nombre:      form.nombre.trim(),
       ubicacion:   form.ubicacion.trim() || null,
       descripcion: form.descripcion.trim() || null,
+      portada_url: portadaUrl,
     };
     try {
       if (proyecto) await api.proyectos.update(proyecto.id, body);
@@ -337,6 +374,37 @@ function ProyectoModal({
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
+          {/* Portada */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+              Portada del proyecto
+            </label>
+            <div className="relative aspect-[16/9] rounded-xl overflow-hidden border border-gray-200 bg-gradient-to-br from-[#fdf3d9] via-[#f8e4a8] to-[#d4a843]/40">
+              {portadaUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={resolveFileUrl(portadaUrl)} alt="Portada" className="absolute inset-0 w-full h-full object-cover"/>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Layers size={32} className="text-[#d4a843]/60"/>
+                </div>
+              )}
+              <label className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-xs font-semibold py-2 flex items-center justify-center gap-1.5 cursor-pointer hover:bg-black/70 transition-colors">
+                <ImageUp size={12}/>
+                {uploading ? 'Subiendo…' : portadaUrl ? 'Cambiar portada' : 'Subir portada'}
+                <input type="file" accept="image/*" className="hidden" disabled={uploading}
+                  onChange={(e) => e.target.files?.[0] && handlePortada(e.target.files[0])}/>
+              </label>
+              {portadaUrl && !uploading && (
+                <button type="button" onClick={() => setPortadaUrl(null)}
+                  title="Quitar portada"
+                  className="absolute top-2 right-2 bg-white/95 hover:bg-white text-gray-700 hover:text-red-600 w-7 h-7 rounded-lg flex items-center justify-center shadow">
+                  <X size={13}/>
+                </button>
+              )}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">JPG, PNG o WebP. Se muestra en el card del proyecto.</p>
+          </div>
+
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
               Nombre del proyecto <span className="text-red-500">*</span>
