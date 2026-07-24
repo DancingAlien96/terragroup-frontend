@@ -94,6 +94,7 @@ export const api = {
     toggleCroquis:           (id: number, activo: boolean) => request<any>(`/api/empresas/${id}/croquis`, { method: 'PATCH', body: JSON.stringify({ activo }) }),
     miSuscripcion:           () => request<any>('/api/empresas/mi-suscripcion'),
     cancelarMiSuscripcion:   () => request<any>('/api/empresas/mi-suscripcion/cancelar', { method: 'POST' }),
+    comprarProyectoExtra:    () => request<{ checkout_url: string }>('/api/empresas/mi-suscripcion/proyecto-extra', { method: 'POST' }),
     listUsuarios:            (empresaId: number) =>
       request<any[]>(`/api/empresas/${empresaId}/usuarios`),
     updateCredenciales:      (empresaId: number, usuarioId: number, body: { username?: string; password?: string }) =>

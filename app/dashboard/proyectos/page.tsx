@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Layers, Plus, MapPin, MoreVertical, Edit2, Trash2, Power, X, AlertCircle, MapPinned, ImageUp } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Layers, Plus, MapPin, MoreVertical, Edit2, Trash2, Power, X, AlertCircle, MapPinned, ImageUp, Sparkles, Check } from 'lucide-react';
 import { api } from '@/lib/api';
 import { getStoredUser, isReadOnly } from '@/lib/auth';
 import { useDialog } from '@/lib/useDialog';
@@ -32,12 +33,20 @@ interface Limites {
 export default function ProyectosPage() {
   const readOnly    = typeof window !== 'undefined' ? isReadOnly() : false;
   const tieneCroquis = typeof window !== 'undefined' ? !!getStoredUser()?.tiene_croquis : false;
-  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
-  const [limites,   setLimites]   = useState<Limites | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [modal,     setModal]     = useState(false);
-  const [editing,   setEditing]   = useState<Proyecto | null>(null);
-  const [menuOpen,  setMenuOpen]  = useState<number | null>(null);
+  const searchParams = useSearchParams();
+  const router       = useRouter();
+  const [proyectos, setProyectos]     = useState<Proyecto[]>([]);
+  const [limites,   setLimites]       = useState<Limites | null>(null);
+  const [loading,   setLoading]       = useState(true);
+  const [modal,     setModal]         = useState(false);
+  const [editing,   setEditing]       = useState<Proyecto | null>(null);
+  const [menuOpen,  setMenuOpen]      = useState<number | null>(null);
+  const [comprando, setComprando]     = useState(false);
+  // Estado del banner post-checkout: mensaje + tipo (esperando / exito / error).
+  const [postCheckout, setPostCheckout] = useState<null | {
+    tipo: 'confirmando' | 'exito' | 'cancelado';
+    permitidosAlInicio: number;
+  }>(null);
   const { showAlert, showConfirm, DialogJSX } = useDialog();
 
   const load = useCallback(async () => {
@@ -57,6 +66,61 @@ export default function ProyectosPage() {
   }, [showAlert]);
 
   useEffect(() => { load(); }, [load]);
+
+  /* ── Post-checkout: llegada desde Recurrente con ?extra=exito ────────
+     El webhook puede tardar unos segundos; hacemos polling silencioso
+     del contador de límites hasta que el `permitidos` aumente, o rendimos
+     después de 30s con instrucción de refrescar. */
+  useEffect(() => {
+    const q = searchParams.get('extra');
+    if (!q) return;
+    if (q === 'cancelado') {
+      setPostCheckout({ tipo: 'cancelado', permitidosAlInicio: limites?.permitidos ?? 0 });
+      router.replace('/dashboard/proyectos');
+      return;
+    }
+    if (q === 'exito' && limites) {
+      setPostCheckout({ tipo: 'confirmando', permitidosAlInicio: limites.permitidos });
+      router.replace('/dashboard/proyectos');
+    }
+  }, [searchParams, limites, router]);
+
+  // Polling: cuando estamos confirmando, chequeamos límites cada 3s hasta
+  // que suba (o rendimos a los 30s).
+  useEffect(() => {
+    if (postCheckout?.tipo !== 'confirmando') return;
+    let intentos = 0;
+    const int = setInterval(async () => {
+      intentos++;
+      try {
+        const lim = await api.proyectos.limites();
+        setLimites(lim as Limites);
+        if ((lim as Limites).permitidos > postCheckout.permitidosAlInicio) {
+          setPostCheckout({ tipo: 'exito', permitidosAlInicio: postCheckout.permitidosAlInicio });
+          clearInterval(int);
+        } else if (intentos >= 10) {
+          clearInterval(int);
+        }
+      } catch { /* silencioso */ }
+    }, 3000);
+    return () => clearInterval(int);
+  }, [postCheckout]);
+
+  async function handleComprarProyectoExtra() {
+    if (readOnly) return;
+    if (!await showConfirm('¿Comprar un proyecto extra?', {
+      description: 'Se agregará $50 USD/mes al cobro recurrente de tu suscripción. Podrás crear un proyecto más de inmediato.',
+      confirmLabel: 'Continuar al pago',
+    })) return;
+    setComprando(true);
+    try {
+      const res = await api.empresas.comprarProyectoExtra();
+      window.location.href = res.checkout_url;
+    } catch (e: any) {
+      showAlert(e?.message ?? 'No se pudo iniciar el pago');
+      setComprando(false);
+    }
+  }
 
   // Cierra el menú de acciones al hacer click afuera
   useEffect(() => {
@@ -138,6 +202,47 @@ export default function ProyectosPage() {
           )}
         </div>
 
+        {/* Banner post-checkout de Recurrente */}
+        {postCheckout?.tipo === 'confirmando' && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+              <div className="w-4 h-4 rounded-full border-2 border-blue-700 border-t-transparent animate-spin"/>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-blue-900">Confirmando tu pago…</p>
+              <p className="text-xs text-blue-700">Estamos esperando la confirmación de Recurrente. Tu proyecto extra aparecerá en unos segundos.</p>
+            </div>
+          </div>
+        )}
+        {postCheckout?.tipo === 'exito' && (
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center shrink-0">
+              <Check size={18} strokeWidth={3}/>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-green-900">¡Proyecto extra activado!</p>
+              <p className="text-xs text-green-700">Ya puedes crear un proyecto más. Se cobrará $50 USD/mes junto con tu suscripción.</p>
+            </div>
+            <button onClick={() => setPostCheckout(null)} className="text-green-700 hover:text-green-900">
+              <X size={16}/>
+            </button>
+          </div>
+        )}
+        {postCheckout?.tipo === 'cancelado' && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <AlertCircle size={18}/>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-amber-900">Pago cancelado</p>
+              <p className="text-xs text-amber-700">No se realizó ningún cobro. Puedes intentarlo nuevamente cuando quieras.</p>
+            </div>
+            <button onClick={() => setPostCheckout(null)} className="text-amber-700 hover:text-amber-900">
+              <X size={16}/>
+            </button>
+          </div>
+        )}
+
         {/* Contador de límites del plan */}
         {limites && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -162,10 +267,24 @@ export default function ProyectosPage() {
                 style={{ width: `${Math.min(100, usadoPct)}%` }}
               />
             </div>
-            {!limites.puede_crear && (
-              <p className="text-xs text-gray-500 mt-3">
-                Para agregar más proyectos, actualiza tu plan o compra un proyecto extra por $50/mes.
-              </p>
+            {!limites.puede_crear && !readOnly && (
+              <div className="mt-4 flex items-center justify-between gap-3 flex-wrap bg-[#fdf3d9]/40 border border-[#d4a843]/20 rounded-xl px-4 py-3">
+                <div className="flex items-start gap-2 min-w-0">
+                  <Sparkles size={14} className="text-[#8a6910] shrink-0 mt-0.5"/>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#8a6910]">¿Necesitas un proyecto más?</p>
+                    <p className="text-[11px] text-gray-600">Agrega un slot por $50 USD/mes al cobro recurrente.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleComprarProyectoExtra}
+                  disabled={comprando}
+                  className="bg-[#d4a843] hover:bg-[#b8922e] disabled:opacity-60 text-white font-semibold text-xs px-4 py-2 rounded-lg inline-flex items-center gap-1.5 shrink-0"
+                >
+                  <Plus size={12} strokeWidth={3}/>
+                  {comprando ? 'Abriendo pago…' : 'Comprar proyecto extra'}
+                </button>
+              </div>
             )}
           </div>
         )}
